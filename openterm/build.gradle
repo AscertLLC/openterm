@@ -1,0 +1,9 @@
+
+task execute(type:JavaExec) {
+    main = "com.ascert.open.term.application.ClientLauncher"
+    classpath = sourceSets.main.runtimeClasspath
+
+    systemProperties System.getProperties();
+    //println systemProperties
+}
+
