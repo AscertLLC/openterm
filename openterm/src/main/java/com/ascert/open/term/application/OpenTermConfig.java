@@ -21,7 +21,9 @@ package com.ascert.open.term.application;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
+import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
 import com.ascert.open.term.core.SimpleConfig;
@@ -92,6 +94,11 @@ public class OpenTermConfig
         return getConfig().setProperty(key, value);
     }
 
+    public static boolean clearPrefs()
+    {
+        return getConfig().clearPreferences();
+    }
+    
     // Keys in property files sometimes need quotes to preserve spaces or make them easier to read
     // This utility method simplifies removing them
     public static String stripQuotes(String str)
@@ -165,6 +172,7 @@ public class OpenTermConfig
     {
         // not totally clear whether previous value should be at Prefs level, or including fallbacks
         String prevVal = getProperty(key);
+        log.finer(String.format("setProperty: key=%s, val=[%s]", key, value));
         prefsNode.put(key, value);
         return prevVal;
     }
@@ -190,6 +198,20 @@ public class OpenTermConfig
         }
     }
 
+    public boolean clearPreferences()
+    {
+        try
+        {
+            prefsNode.clear();
+            return true;
+        }
+        catch (BackingStoreException ex)
+        {
+            log.severe("Exception clearing preferences: " + ex);
+            return false;
+        }
+    }
+    
     //////////////////////////////////////////////////
     // PROTECTED INSTANCE METHODS
     //////////////////////////////////////////////////

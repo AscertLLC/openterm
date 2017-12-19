@@ -39,18 +39,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Logger;
 
-import javax.swing.AbstractAction;
-import javax.swing.ButtonGroup;
-import javax.swing.InputMap;
-import javax.swing.JCheckBoxMenuItem;
-import javax.swing.JComponent;
-import javax.swing.JFrame;
-import javax.swing.JMenu;
-import javax.swing.JMenuBar;
-import javax.swing.JOptionPane;
-import javax.swing.JRadioButtonMenuItem;
-import javax.swing.JToolBar;
-import javax.swing.KeyStroke;
+import javax.swing.*;
 
 import com.ascert.open.term.core.Host;
 import com.ascert.open.term.gui.JTerminalScreen;
@@ -88,40 +77,26 @@ public class ApplicationFrame extends JFrame
         new Color(204, 255, 204)
     };
     private JMenuBar menubar;
+    private JMenu connect;
     private JToolBar toolbar;
     private JTerminalScreen rhp;
     private Terminal term;
     private List<Host> available = new ArrayList<>();
     private boolean autoConnect = true;
     private boolean embeddedUse = false;
+    private String productName;
 
     /**
      * No-ops constructor. Asks users to enter the connection settings in the corresponding dialog box then proceeds as normal.
      */
     public ApplicationFrame()
     {
-        super("open.term");
-
-        ConfigDialog cfgDialog = new ConfigDialog();
-        cfgDialog.setVisible(true);
-
-        if (cfgDialog.getResult() == 1)
-        {
-            init(cfgDialog.getHost(), cfgDialog.getPort(), cfgDialog.getTerminalType(), cfgDialog.isEncryptionUsed());
-        }
-        else
-        {
-            exit();
-        }
-    }
-
-    public ApplicationFrame(String host, int port, String type, boolean encryption)
-    {
-        init(host, port, type, encryption);
+        this(new ArrayList<Host> (), null);
     }
 
     public ApplicationFrame(List<Host> available, JFrame parent)
     {
+        super();
         this.available = available;
         init(parent);
     }
@@ -227,70 +202,8 @@ public class ApplicationFrame extends JFrame
         });
         menubar.add(file);
 
-        JMenu connect = new JMenu("Connect");
-
-        Iterator<Host> hosts = available.iterator();
-
-        while (hosts.hasNext())
-        {
-            // messy hack for now - tooltips maybe neater
-            final Host hst = hosts.next();
-            String menuTxt = hst.toString();
-            connect.add(new AbstractAction(menuTxt)
-            {
-                public void actionPerformed(ActionEvent evt)
-                {
-                    ApplicationFrame.this.disconnect();
-
-                    try
-                    {
-                        ApplicationFrame.this.connect(hst);
-                    }
-                    catch (Exception e)
-                    {
-                        showConnectionErrorDialog(e.getMessage());
-                    }
-                }
-            });
-        }
-
-        connect.add(new AbstractAction("Other...")
-        {
-            public void actionPerformed(ActionEvent evt)
-            {
-                ConfigDialog cfgDialog = new ConfigDialog();
-                cfgDialog.setVisible(true);
-
-                if (cfgDialog.getResult() == 1)
-                {
-                    ApplicationFrame.this.disconnect();
-
-                    try
-                    {
-                        Host otherHost = new Host(cfgDialog.getHost(), cfgDialog.getPort(), cfgDialog.getTerminalType(), cfgDialog.
-                                                  isEncryptionUsed());
-                        available.add(otherHost);
-                        ApplicationFrame.this.connect(otherHost);
-                    }
-                    catch (Exception e)
-                    {
-                        showConnectionErrorDialog(e.getMessage());
-                    }
-
-                    rhp.requestFocusInWindow();
-                }
-            }
-        });
-        connect.addSeparator();
-
-        connect.add(new AbstractAction("Disconnect")
-        {
-            public void actionPerformed(ActionEvent evt)
-            {
-                ApplicationFrame.this.disconnect();
-            }
-        });
-
+        connect = new JMenu("Connect");
+        initHostsMenu();
         menubar.add(connect);
 
         JMenu options = new JMenu("Options");
@@ -446,6 +359,23 @@ public class ApplicationFrame extends JFrame
         });
         options.add(optFkeyBar);
 
+        options.addSeparator();
+        options.add(new AbstractAction("Clear Saved Preferences")
+            {
+                public void actionPerformed(ActionEvent evt)
+                {
+                    int n = JOptionPane.showConfirmDialog(ApplicationFrame.this,
+                                                          "Are you sure you want to clear all saved preferences?",
+                                                          "Clear Preferences", JOptionPane.YES_NO_OPTION);   
+                    if (n == JOptionPane.YES_OPTION)
+                    {
+                        OpenTermConfig.clearPrefs();
+                    }
+                }
+            });
+        
+        
+        
         menubar.add(options);
 
         JMenu about = new JMenu("Help");
@@ -454,7 +384,7 @@ public class ApplicationFrame extends JFrame
         {
             public void actionPerformed(ActionEvent evt)
             {
-                AboutFrame about = new AboutFrame(ApplicationFrame.this);
+                AboutFrame about = new AboutFrame(ApplicationFrame.this, productName);
                 about.setVisible(true);
             }
         });
@@ -494,7 +424,8 @@ public class ApplicationFrame extends JFrame
      */
     private void init(JFrame parent)
     {
-        setTitle("open.term");
+        productName = OpenTermConfig.getProp("product.name", "open.term");
+        setTitle(productName);
         setResizable(false);
         setLayout(new BorderLayout());
 
@@ -530,17 +461,101 @@ public class ApplicationFrame extends JFrame
         }
         else
         {
-            setTitle("open.term - Not Connected");
+            setTitle(productName + " - Not Connected");
         }
 
         addFocusListener(this);
     }
 
+    protected void initHostsMenu()
+    {
+        connect.removeAll();
+        Iterator<Host> hosts = available.iterator();
+
+        //JMenuItem mnu = new JMenuItem();
+        //Font boldFont = menu.getFont().deriveFont(Font.BOLD);
+        
+        while (hosts.hasNext())
+        {
+            final Host hst = hosts.next();
+            // quick hack for now - tooltips maybe neater
+            String menuTxt = hst.toString();
+            connect.add(new AbstractAction(menuTxt)
+            {
+                public void actionPerformed(ActionEvent evt)
+                {
+                    ApplicationFrame.this.disconnect();
+
+                    try
+                    {
+                        ApplicationFrame.this.connect(hst);
+                    }
+                    catch (Exception e)
+                    {
+                        showConnectionErrorDialog(e.getMessage());
+                    }
+                }
+            });
+        }
+
+        connect.add(new AbstractAction("New ...")
+        {
+            public void actionPerformed(ActionEvent evt)
+            {
+                ConfigDialog cfgDialog = new ConfigDialog();
+                cfgDialog.setVisible(true);
+                final Host newHost = cfgDialog.getHost();
+                
+                if (newHost != null)
+                {
+                    SwingUtilities.invokeLater(new Runnable()
+                    {
+                        @Override
+                        public void run()
+                        {
+                            ApplicationFrame.this.disconnect();
+
+                            try
+                            {
+                                ApplicationFrame.this.connect(newHost);
+                            }
+                            catch (Exception e)
+                            {
+                                showConnectionErrorDialog(e.getMessage());
+                            }
+                            
+                            // Add to list regardless of connection success
+                            if (newHost.isFavourite())
+                            {
+                                //TODO - could check if already present to avoid duplicates
+                                available.add(newHost);
+                                OpenTermConfig.setProp("favourite.hosts", Host.getFavouritesAsConfigString(available));
+                                initHostsMenu();
+                            }
+                        }
+                    });
+
+
+                    rhp.requestFocusInWindow();
+                }
+            }
+        });
+        connect.addSeparator();
+
+        connect.add(new AbstractAction("Disconnect")
+        {
+            public void actionPerformed(ActionEvent evt)
+            {
+                ApplicationFrame.this.disconnect();
+            }
+        });
+    }
+    
     protected void connect(Host host)
     {
         log.fine("** connect " + host);
 
-        setTitle("open.term - Connecting to " + host.toString());
+        setTitle(productName + " - Connecting to " + host.toString());
 
         try
         {
@@ -552,7 +567,7 @@ public class ApplicationFrame extends JFrame
 
             term.connect(host.getHostName(), host.getPort(), host.isEncryption());
             requestFocus();
-            setTitle("open.term - Connected to " + host.toString());
+            setTitle(productName + " - Connected to " + host.toString());
         }
         catch (Exception e)
         {

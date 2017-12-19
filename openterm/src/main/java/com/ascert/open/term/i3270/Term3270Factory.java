@@ -28,9 +28,11 @@ import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.SpringLayout;
 
 import com.ascert.open.term.core.Terminal;
 import com.ascert.open.term.core.TerminalFactory;
+import com.ascert.open.term.gui.SpringUtilities;
 
 /**
  *
@@ -137,6 +139,7 @@ public class Term3270Factory implements TerminalFactory
     //////////////////////////////////////////////////
     // NON-STATIC INNER CLASSES
     //////////////////////////////////////////////////
+    
     public class OptsPanel3270 extends JPanel
     {
 
@@ -148,13 +151,8 @@ public class Term3270Factory implements TerminalFactory
         {
             super();
             this.termType = termType;
-
-            GridLayout bl = new GridLayout(0, 2);
-            setLayout(bl);
-
-            JLabel lblModel;
-            JLabel lblExtAttr;
-
+            setLayout(new SpringLayout());
+            
             String[] modelTypes =
             {
                 "Model 2 (24x80)",
@@ -162,19 +160,32 @@ public class Term3270Factory implements TerminalFactory
                 "Model 4 (43x80)",
                 "Model 5 (27x132)"
             };
-
-            lblModel = new JLabel("Model:");
-            add(lblModel);
+            
             modelCombo = new JComboBox(modelTypes);
-            add(modelCombo);
-            modelCombo.setSelectedIndex(0);
-
-            lblExtAttr = new JLabel("Extended attributes:");
-            add(lblExtAttr);
-
             extAttr3270 = new JCheckBox();
+            
+            Object[][] flds = new Object[][] { 
+                    { "Model:", modelCombo },
+                    { "Extended attributes:", extAttr3270 },
+                };
+        
+            for (int ix = 0; ix < flds.length; ix++)
+            {
+                JLabel lbl = new JLabel(flds[ix][0].toString(), JLabel.TRAILING);
+                add(lbl);
+                Component c = (Component) flds[ix][1];
+                lbl.setLabelFor(c);
+                add(c);            
+            }
+        
+            SpringUtilities.makeCompactGrid(this, 
+                                        flds.length, 2, //rows, cols
+                                        8, 4,        //initX, initY
+                                        8, 4);       //xPad, yPad
+            
+
+            modelCombo.setSelectedIndex(0);
             extAttr3270.setSelected(true);
-            add(extAttr3270);
         }
 
         // Return the string encoded form of the terminal type represented by these options

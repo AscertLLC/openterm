@@ -23,7 +23,6 @@
  */
 package com.ascert.open.term.application;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import com.ascert.open.term.core.Host;
@@ -40,7 +39,7 @@ import com.ascert.open.term.core.TerminalFactoryRegistrar;
  * Behaviour is a little different here to original Freehost3270. Session server feature has been bypassed (at least for now). In it's
  * place, we have a TerminalFactory model which allows support for multiple device type emulators
  *
- * @see #KEY_AVAILABLE
+ * @see #KEY_HOSTS
  * @see #KEY_HOST
  * @see #KEY_PORT
  * @see #KEY_TERMTYPE
@@ -52,13 +51,7 @@ public class ClientLauncher
     private static final Logger log = Logger.getLogger(ClientLauncher.class.getName());
 
     public static final String KEY_TERM_FACTORIES = "com.ascert.open.term.factories";
-
-    public static final String KEY_HOST = "com.ascert.open.term.host";
-    public static final String KEY_PORT = "com.ascert.open.term.port";
-    public static final String KEY_TERMTYPE = "com.ascert.open.term.termtype";
-    public static final String KEY_SSL = "com.ascert.open.term.ssl";
-
-    public static final String KEY_AVAILABLE = "com.ascert.open.term.available";
+    public static final String KEY_HOSTS = "com.ascert.open.term.hosts";
 
     public static SimpleConfig config;
 
@@ -74,64 +67,19 @@ public class ClientLauncher
 
         setLookAndFeel();
 
-        String factories = System.getProperty(KEY_TERM_FACTORIES);
-        String otHost = System.getProperty(KEY_HOST);
-        String otPortStr = System.getProperty(KEY_PORT);
-        String otSSL = System.getProperty(KEY_SSL);
-        String otTermType = System.getProperty(KEY_TERMTYPE);
-
-        String available = System.getProperty(KEY_AVAILABLE);
-
+        String factories = OpenTermConfig.getProp(KEY_TERM_FACTORIES);
+        String hosts = OpenTermConfig.getProp(KEY_HOSTS);
+        String favouriteHosts = OpenTermConfig.getProp("favourite.hosts");
+        
         log.fine("launching FreeHost standalone GUI client with parameters:");
-        log.fine(KEY_AVAILABLE + " = " + available);
-        log.fine(KEY_HOST + " = " + otHost);
-        log.fine(KEY_PORT + " = " + otPortStr);
-        log.fine(KEY_SSL + " = " + otSSL);
-        log.fine(KEY_TERMTYPE + " = " + otTermType);
+        log.fine(KEY_HOSTS + " = " + hosts);
+        log.fine(" favour.hosts = " + favouriteHosts);
 
         TerminalFactoryRegistrar.initTermTypeFactories(factories);
 
-        ApplicationFrame appFrame;
-
-        if (otHost != null && otPortStr != null && otTermType != null)
-        {
-            int otPort = 23;
-
-            try
-            {
-                otPort = Integer.parseInt(otPortStr);
-            }
-            catch (NumberFormatException e)
-            {
-                log.severe(e.getMessage());
-                e.printStackTrace();
-            }
-            appFrame = new ApplicationFrame(otHost, otPort, otTermType, "true".equalsIgnoreCase(otSSL));
-
-        }
-        else if (available != null)
-        {
-            //Pretty crude - carried over from original code
-            List<Host> availableHosts = new ArrayList<>();
-
-            for (String availableHost : available.split(";"))
-            {
-                String[] opts = availableHost.split(",");
-                //TODO - Better bounds checking
-                String hostName = opts[0];
-                int hostPort = Integer.parseInt(opts[1]);
-                String useSSL = opts[2];
-                String termType = opts[3];
-                availableHosts.add(new Host(hostName, hostPort, termType, "true".equalsIgnoreCase(useSSL)));
-            }
-
-            appFrame = new ApplicationFrame(availableHosts, null);
-        }
-        else
-        {
-            appFrame = new ApplicationFrame();
-        }
-
+        List<Host> availableHosts = Host.getHostStringAsList(favouriteHosts, true);
+        availableHosts.addAll(Host.getHostStringAsList(hosts, false));
+        ApplicationFrame appFrame = new ApplicationFrame(availableHosts, null);
         appFrame.setVisible(true);
     }
 
@@ -152,7 +100,7 @@ public class ClientLauncher
         }
         catch (Exception e)
         {
-            // If Nimbus is not available, you can set the GUI to another look and feel.
+            // If Nimbus is not hosts, you can set the GUI to another look and feel.
         }
     }
 

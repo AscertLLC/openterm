@@ -42,10 +42,10 @@ import javax.swing.JPanel;
 public class AboutFrame extends JDialog
 {
 
-    public AboutFrame(Frame owner)
+    public AboutFrame(Frame owner, String name)
     {
         super(owner, true);
-        setTitle("About open.term");
+        setTitle("About " + name);
 
         setLayout(new BorderLayout());
 

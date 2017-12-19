@@ -27,6 +27,7 @@ import java.awt.CardLayout;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Frame;
+import java.awt.GridLayout;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -42,17 +43,12 @@ import java.text.NumberFormat;
 import java.util.Vector;
 import java.util.logging.Logger;
 
-import javax.swing.DefaultComboBoxModel;
-import javax.swing.JCheckBox;
-import javax.swing.JComboBox;
-import javax.swing.JDialog;
-import javax.swing.JFormattedTextField;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JTextField;
+import javax.swing.*;
 
+import com.ascert.open.term.core.Host;
 import com.ascert.open.term.core.TerminalFactory;
 import com.ascert.open.term.core.TerminalFactoryRegistrar;
+import com.ascert.open.term.gui.SpringUtilities;
 
 /**
  * Dialog that serves as a widget to specify connection and device settings to the host.
@@ -73,19 +69,15 @@ public class ConfigDialog extends JDialog implements ActionListener,
 
     private JComboBox typeCombo;
     private JCheckBox useEncryptionField;
+    private JCheckBox addToFavourites;
     private JFormattedTextField portField;
     private JOptionPane optionPane;
     private JTextField hostField;
 
-    private JPanel optPanel;
+    private JPanel termOptsPanel;
     private CardLayout cl;
 
-    private String hostName = "";
-    private int portNumber;
-    private boolean useEncryption = false;
-    private String terminalType;
-
-    private int result = 0;
+    private Host host = null;
 
     public ConfigDialog()
     {
@@ -114,21 +106,22 @@ public class ConfigDialog extends JDialog implements ActionListener,
             addTerminalFactory(factory);
         }
 
-        hostField = new JTextField(10);
+        hostField = new JTextField(20);
         hostField.setText(hostName != null ? hostName : "");
         portField = new JFormattedTextField(NumberFormat.getIntegerInstance());
         portField.setColumns(4);
         portField.setValue(portNumber != null ? portNumber : 23);
         useEncryptionField = new JCheckBox();
         useEncryptionField.setSelected(useEncryption);
+        addToFavourites = new JCheckBox();
 
-        optPanel = new JPanel();
+        termOptsPanel = new JPanel();
         cl = new CardLayout();
-        optPanel.setLayout(cl);
+        termOptsPanel.setLayout(cl);
 
         for (TermOptsHandler toh : termFactoryList)
         {
-            optPanel.add(toh.getOptsPanel(), toh.toString());
+            termOptsPanel.add(toh.getOptsPanel(), toh.toString());
         }
 
         typeCombo = new JComboBox(new DefaultComboBoxModel<TermOptsHandler>(termFactoryList));
@@ -139,20 +132,40 @@ public class ConfigDialog extends JDialog implements ActionListener,
                 if (e.getStateChange() == ItemEvent.SELECTED)
                 {
                     TermOptsHandler toh = termFactoryList.get(typeCombo.getSelectedIndex());
-                    cl.show(optPanel, toh.toString());
+                    cl.show(termOptsPanel, toh.toString());
                 }
             }
         });
 
         typeCombo.setSelectedIndex(0);
 
+        Object[][] flds = new Object[][] { 
+                { "Host:", hostField },
+                { "Port:", portField },
+                { "Use SSL:", useEncryptionField },
+                { "Favourite:", addToFavourites },
+                { "Type:", typeCombo },
+            };
+        
+        JPanel optPnl = new JPanel(new SpringLayout());
+        for (int ix = 0; ix < flds.length; ix++)
+        {
+            JLabel lbl = new JLabel(flds[ix][0].toString(), JLabel.TRAILING);
+            optPnl.add(lbl);
+            Component c = (Component) flds[ix][1];
+            lbl.setLabelFor(c);
+            optPnl.add(c);            
+        }
+        
+        SpringUtilities.makeCompactGrid(optPnl, 
+                                        flds.length, 2, //rows, cols
+                                        8, 4,        //initX, initY
+                                        8, 4);       //xPad, yPad
+        
         Object[] controls =
         {
-            "Specify target host", "Host name:", hostField,
-            "Port number:", portField,
-            "Use SSL encryption:", useEncryptionField,
-            "Type:", typeCombo,
-            "", optPanel
+            optPnl, 
+            termOptsPanel
         };
 
         Object[] options =
@@ -211,63 +224,18 @@ public class ConfigDialog extends JDialog implements ActionListener,
      */
     public void clearAndHide()
     {
-        hostField.setText(null);
+        //hostField.setText(null);
         setVisible(false);
     }
 
     /**
-     * Returns host name entered by user.
+     * Returns host selected name by user.
      *
      * @return DOCUMENT ME!
      */
-    public String getHost()
+    public Host getHost()
     {
-        return hostName;
-    }
-
-    /**
-     * Returns the 3270 terminal type selected by the user.
-     *
-     * @return an integer representing the 3270 type.
-     */
-    public String getTerminalType()
-    {
-        return terminalType;
-    }
-
-    /**
-     * Returns port number entered by user.
-     *
-     * @return DOCUMENT ME!
-     */
-    public int getPort()
-    {
-        return portNumber;
-    }
-
-    /**
-     * Returns the close operation code. Codes are:
-     *
-     * <ul>
-     * <li>
-     * 0 - closed or cancelled.
-     * </li>
-     * <li>
-     * 1 - successful.
-     * </li>
-     * </ul>
-     *
-     *
-     * @return the operation code.
-     */
-    public int getResult()
-    {
-        return result;
-    }
-
-    public boolean isEncryptionUsed()
-    {
-        return useEncryption;
+        return host;
     }
 
     public void propertyChange(PropertyChangeEvent e)
@@ -293,25 +261,20 @@ public class ConfigDialog extends JDialog implements ActionListener,
             if (okString.equals(value))
             {
                 // we're done; clear and dismiss the dialog
-                hostName = hostField.getText();
-
-                Number port = (Number) portField.getValue();
-                portNumber = port.intValue();
-                useEncryption = useEncryptionField.isSelected();
                 TermOptsHandler toh = termFactoryList.get(typeCombo.getSelectedIndex());
-                terminalType = toh.getTermType();
-
-                log.fine(String.format("Host %s:%d, type: %s, encr: %b", getHost(), getPort(), getTerminalType(), isEncryptionUsed()));
-
-                result = 1;
+                String terminalType = toh.getTermType();
+                Number port = (Number) portField.getValue();
+                
+                host = new Host(hostField.getText(), port.intValue(), terminalType, useEncryptionField.isSelected());
+                host.setFavourite(addToFavourites.isSelected());
+                log.fine(String.format("New host %s", host.toString()));
                 clearAndHide();
             }
             else
             {
-                log.warning("Closed or canceled");
-
                 // user closed dialog or clicked cancel
-                result = 0;
+                host = null;
+                log.warning("Closed or canceled");
                 clearAndHide();
             }
         }
