@@ -21,13 +21,12 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-package com.ascert.open.term.application;
+package com.ascert.open.term.gui;
 
 import java.awt.CardLayout;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Frame;
-import java.awt.GridLayout;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -48,18 +47,17 @@ import javax.swing.*;
 import com.ascert.open.term.core.Host;
 import com.ascert.open.term.core.TerminalFactory;
 import com.ascert.open.term.core.TerminalFactoryRegistrar;
-import com.ascert.open.term.gui.SpringUtilities;
 
 /**
  * Dialog that serves as a widget to specify connection and device settings to the host.
  *
  * @since 0.2
  */
-public class ConfigDialog extends JDialog implements ActionListener,
+public class NewHostDialog extends JDialog implements ActionListener,
                                                      PropertyChangeListener
 {
 
-    private static final Logger log = Logger.getLogger(ConfigDialog.class.getName());
+    private static final Logger log = Logger.getLogger(NewHostDialog.class.getName());
 
     private static final String okString = "Ok";
     private static final String cancelString = "Cancel";
@@ -79,12 +77,12 @@ public class ConfigDialog extends JDialog implements ActionListener,
 
     private Host host = null;
 
-    public ConfigDialog()
+    public NewHostDialog()
     {
         this(null, null, null);
     }
 
-    public ConfigDialog(Frame owner, String hostName, Integer portNumber)
+    public NewHostDialog(Frame owner, String hostName, Integer portNumber)
     {
         this(null, null, null, false);
     }
@@ -97,7 +95,7 @@ public class ConfigDialog extends JDialog implements ActionListener,
      * @param portNumber    default value for port number. If <code>null</code> none is used.
      * @param useEncryption default state for 'use encryption' check box.
      */
-    public ConfigDialog(Frame owner, String hostName, Integer portNumber, boolean useEncryption)
+    public NewHostDialog(Frame owner, String hostName, Integer portNumber, boolean useEncryption)
     {
         super(owner, "Connection settings", true);
 

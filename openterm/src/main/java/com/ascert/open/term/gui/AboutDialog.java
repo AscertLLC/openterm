@@ -20,7 +20,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-package com.ascert.open.term.application;
+package com.ascert.open.term.gui;
+
+import com.ascert.open.term.application.OpenTermConfig;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -39,10 +41,10 @@ import javax.swing.JPanel;
  * About FreeHost3270 dialog. Shows short summary information about FreeHost3270 application, copyrights and pointer to the projects home
  * site.
  */
-public class AboutFrame extends JDialog
+public class AboutDialog extends JDialog
 {
 
-    public AboutFrame(Frame owner, String name)
+    public AboutDialog(Frame owner, String name)
     {
         super(owner, true);
         setTitle("About " + name);
@@ -59,7 +61,7 @@ public class AboutFrame extends JDialog
         {
             public void actionPerformed(ActionEvent evt)
             {
-                AboutFrame.this.setVisible(false);
+                AboutDialog.this.setVisible(false);
             }
         }));
         add("South", p);

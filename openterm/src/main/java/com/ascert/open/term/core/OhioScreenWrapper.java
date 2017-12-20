@@ -32,7 +32,7 @@ import com.ascert.open.ohio.OhioOIAListener;
 import com.ascert.open.ohio.OhioPosition;
 import com.ascert.open.ohio.OhioScreen;
 import com.ascert.open.ohio.OhioScreenListener;
-import com.ascert.open.term.application.ApplicationFrame;
+import com.ascert.open.term.gui.ApplicationFrame;
 
 /**
  * Thin set of wrapper classes providing the more significant OHIO API bindings into the terminal emulation layer. Note that Java use of

@@ -23,6 +23,8 @@
  */
 package com.ascert.open.term.application;
 
+import com.ascert.open.term.gui.ApplicationFrame;
+
 import java.util.List;
 
 import com.ascert.open.term.core.Host;

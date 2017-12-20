@@ -20,7 +20,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-package com.ascert.open.term.application;
+package com.ascert.open.term.gui;
+
+import com.ascert.open.term.application.OpenTermConfig;
 
 import java.awt.AWTEvent;
 import java.awt.BorderLayout;
@@ -42,7 +44,6 @@ import java.util.logging.Logger;
 import javax.swing.*;
 
 import com.ascert.open.term.core.Host;
-import com.ascert.open.term.gui.JTerminalScreen;
 
 import com.ascert.open.term.i3270.Term3270;
 import com.ascert.open.term.core.Terminal;
@@ -67,8 +68,7 @@ public class ApplicationFrame extends JFrame
     };
     public static final String[] COLOR_NAMES =
     {
-        "Black", "White", "Green", "Red", "Blue", "Orange", "Turquoise",
-        "Dark Blue", "Light Green"
+        "Black", "White", "Green", "Red", "Blue", "Orange", "Turquoise", "Dark Blue", "Light Green"
     };
     public static final Color[] COLOR_VALUES =
     {
@@ -384,7 +384,7 @@ public class ApplicationFrame extends JFrame
         {
             public void actionPerformed(ActionEvent evt)
             {
-                AboutFrame about = new AboutFrame(ApplicationFrame.this, productName);
+                AboutDialog about = new AboutDialog(ApplicationFrame.this, productName);
                 about.setVisible(true);
             }
         });
@@ -502,7 +502,7 @@ public class ApplicationFrame extends JFrame
         {
             public void actionPerformed(ActionEvent evt)
             {
-                ConfigDialog cfgDialog = new ConfigDialog();
+                NewHostDialog cfgDialog = new NewHostDialog();
                 cfgDialog.setVisible(true);
                 final Host newHost = cfgDialog.getHost();
                 
@@ -540,13 +540,40 @@ public class ApplicationFrame extends JFrame
                 }
             }
         });
-        connect.addSeparator();
 
+        connect.addSeparator();
         connect.add(new AbstractAction("Disconnect")
         {
             public void actionPerformed(ActionEvent evt)
             {
                 ApplicationFrame.this.disconnect();
+            }
+        });
+        
+        connect.addSeparator();
+        connect.add(new AbstractAction("Organize Favourites")
+        {
+            public void actionPerformed(ActionEvent evt)
+            {
+                FavouriteHostsPanel pnlHost = new FavouriteHostsPanel(available);
+                int res = JOptionPane.showConfirmDialog(ApplicationFrame.this, pnlHost, "Favourite Hosts", 
+                                                        JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+                
+                if (res == JOptionPane.OK_OPTION)
+                {
+                    final List<Host> newHosts = pnlHost.getHosts();
+                    SwingUtilities.invokeLater(new Runnable()
+                    {
+                        @Override
+                        public void run()
+                        {
+                            available.clear();
+                            available.addAll(newHosts);
+                            OpenTermConfig.setProp("favourite.hosts", Host.getFavouritesAsConfigString(available));
+                            initHostsMenu();
+                        }
+                    });
+                }
             }
         });
     }
