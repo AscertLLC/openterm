@@ -23,20 +23,7 @@
  */
 package com.ascert.open.term.gui;
 
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.FontMetrics;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.GridLayout;
-import java.awt.KeyboardFocusManager;
-import java.awt.Point;
-import java.awt.Rectangle;
-import java.awt.Toolkit;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
+import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.font.FontRenderContext;
 import java.awt.geom.Rectangle2D;
@@ -53,21 +40,14 @@ import javax.swing.InputMap;
 import javax.swing.JButton;
 import javax.swing.JPanel;
 import javax.swing.JToolBar;
-import javax.swing.KeyStroke;
 import javax.swing.event.MouseInputAdapter;
 
-import com.ascert.open.ohio.Ohio.OHIO_AID;
 import com.ascert.open.term.application.OpenTermConfig;
 import com.ascert.open.term.core.AbstractTerminal.Page;
 
-import com.ascert.open.term.core.IsProtectedException;
-import com.ascert.open.term.core.SimpleConfig;
-
-import com.ascert.open.term.core.TermField;
 import com.ascert.open.term.core.TermChar;
 import com.ascert.open.term.core.Terminal;
 import com.ascert.open.term.core.TnAction;
-import com.ascert.open.term.i3270.Term3270;
 
 /**
  * A SWING component that interactively renders terminal screen contents and handles user to terminal interaction.
@@ -84,9 +64,12 @@ import com.ascert.open.term.i3270.Term3270;
  */
 public class JTerminalScreen extends JPanel implements TnAction, Printable
 {
-
     private static final Logger log = Logger.getLogger(JTerminalScreen.class.getName());
 
+    private static final AlphaComposite AC_50PCT = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f);
+    private static final AlphaComposite AC_75PCT = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.75f);
+    private static final AlphaComposite AC_OPAQUE = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f);
+    
     /**
      * The default size of the panel. Should be overriden upon panel initialization or font size change. TODO - need to optimise for common
      * screen sizes
@@ -101,50 +84,70 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
     public static final int MARGIN_LEFT = 5;
     public static final int MARGIN_TOP = 6;
 
-    /**
-     * Default size of the screen font.
-     */
-    public static final int DEFAULT_FONT_SIZE = 14;
-
-    /**
-     * Default font used to draw terminal.
-     */
-    public static final Font DEFAULT_FONT = new Font("Monospaced", Font.PLAIN, DEFAULT_FONT_SIZE);
-
-    /**
-     * Default terminal foreground color.
-     */
-    public static final Color DEFAULT_FG_COLOR = Color.CYAN;
-
-    /**
-     * Default terminal background color.
-     */
-    public static final Color DEFAULT_BG_COLOR = Color.BLACK;
-    /**
-     * Default font color used to render bold text.
-     */
-    public static final Color DEFAULT_BOLD_COLOR = Color.WHITE;
-
-    /**
-     * Default color used to render cursor pointer on the terminal screen.
-     */
-    public static final Color DEFAULT_CURSOR_COLOR = Color.RED;
-
-    /**
-     * Default input field background color.
-     */
-    public static final Color DEFAULT_FIELD_BG_COLOR = new Color(45, 45, 45);
-
+    // These are really just stop-gap methods between using static defaults, and having a fully safe config model with 
+    // bullet proof defaults
+    
+    public static int getFontSize()
+    {
+        return OpenTermConfig.getIntProp("font.size", 14);
+    }
+    
+    public static String getFontName()
+    {
+        return OpenTermConfig.getProp("font.name", "Monospaced");
+    }
+    
+    public static String getFgColor()
+    {
+        return OpenTermConfig.getProp("color.foreground", "Turquoise");
+    }
+    
+    public static String getBgColor()
+    {
+        return OpenTermConfig.getProp("color.background", "Black");
+    }
+    
+    public static String getBoldColor()
+    {
+        return OpenTermConfig.getProp("color.bold", "White");
+    }
+    
+    public static String getCursorColor()
+    {
+        return OpenTermConfig.getProp("color.cursor", "Red");
+    }
+    
+    
+    public static Color getColor(String colorName)
+    {
+        // TODO - be much tidier as a map, this was quick and simple for now
+        switch (colorName.toLowerCase())
+        {
+            case "black":       return Color.BLACK; 
+            case "white":       return Color.WHITE;
+            case "green":       return Color.GREEN;
+            case "red":         return Color.RED;
+            case "blue":        return Color.BLUE;
+            case "orange":      return Color.ORANGE;
+            case "turquoise":   return Color.CYAN;
+            case "dark blue":   return new Color(0, 51, 102);
+            case "light green": return new Color(204, 255, 204);
+        }
+        
+        return null;
+    }
+        
+    
     // buffer used to draw the screen in background.
     private BufferedImage frameBuff;
 
-    private Color boldColor = DEFAULT_BOLD_COLOR;
-    private Color currentBGColor = DEFAULT_BG_COLOR;
-    private Color currentFGColor = DEFAULT_FG_COLOR;
-    private Color currentFieldBGColor = DEFAULT_FIELD_BG_COLOR;
-    private Color cursorColor = DEFAULT_CURSOR_COLOR;
-    private Font font = DEFAULT_FONT;
-    private int fontsize = DEFAULT_FONT_SIZE;
+    private Color boldColor;
+    private Color currentBGColor;
+    private Color currentFGColor;
+    private Color cursorColor;
+
+    private Font font;
+    private int fontSize;
 
     // graphics context of the background buffer. Use this context to
     // paint the components of the screen.
@@ -155,13 +158,12 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
     /**
      * Current status message.
      */
-    private String statusMessage;
+    //private String statusMessage;
     private String windowMessage;
     private boolean windowMsgOnScreen;
     private int messageNumber;
     private boolean tooManyConnections;
 
-    private String currentPosition;
     private int char_ascent;
     private int char_height;
     private int char_width;
@@ -180,6 +182,14 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
     {
         super();
 
+        fontSize = getFontSize();
+        font = new Font(getFontName(), Font.PLAIN, fontSize);
+
+        boldColor = getColor(getBoldColor());
+        currentBGColor = getColor(getBgColor());
+        currentFGColor = getColor(getFgColor());
+        cursorColor = getColor(getCursorColor());
+        
         origInputMap = this.getInputMap(WHEN_IN_FOCUSED_WINDOW);
         origActionMap = this.getActionMap();
 
@@ -240,7 +250,6 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
 
     private void init()
     {
-
         kHandler = term.getKeyHandler();
         addKeyListener(kHandler.getKeyListener());
 
@@ -255,7 +264,7 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
         windowMsgOnScreen = false;
         rectStartPoint = new Point();
         setBackground(currentBGColor);
-        setFont(DEFAULT_FONT);
+        setFont(font);
 
         if (firstInit)
         {
@@ -529,7 +538,7 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
             frame.draw3DRect(5 + (char_width * 20), char_height * 2,
                              char_width * 40, char_width * 40, true);
             frame.setColor(Color.white);
-            frame.setFont(new Font("Helvetica", Font.PLAIN, fontsize));
+            frame.setFont(new Font("Helvetica", Font.PLAIN, fontSize));
 
             // the next few lines of code handle broadcast messages of
             // varying length and therefore had to be able to auto-wrap on
@@ -565,12 +574,12 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
 
             if ((messageNumber == MSG_BROADCAST) && (tooManyConnections == false))
             {
-                frame.setFont(new Font("Helvetica", Font.BOLD, fontsize));
+                frame.setFont(new Font("Helvetica", Font.BOLD, fontSize));
                 frame.drawString("Message From Your System Administrator:",
                                  char_width * 22, (char_height * 2) - 5);
             }
 
-            frame.setFont(new Font("Helvetica", Font.PLAIN, fontsize - 2));
+            frame.setFont(new Font("Helvetica", Font.PLAIN, fontSize - 2));
             frame.drawString("Press any key to clear this message.",
                              char_width * 22, char_height * 19);
         }
@@ -602,6 +611,12 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
             {
                 frame.setFont(font);
 
+                // Any lingering text after a text we'll show partly transparent
+                if (!term.getTelnet().isConnected())
+                {
+                    frame.setComposite(AC_50PCT);            
+                }
+
                 Page pg = term.getDisplayPage();
                 // Possibly in startup or term re-init, or if some special "blank page" is in use
                 if (pg != null && pg.displaySize() > 0)
@@ -615,8 +630,27 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
                         paintChar(pg.getChar(ix), ix);
                     }
                 }
+                    
+                if (term.getTelnet().isConnected())
+                {
+                    paintCursor(term.getDisplayCursorPosition());
+                }
+                
+                // Overlay images will typically only be used when disconnected to provide something
+                // visual like branding logos etc
+                Image overlayImg = term.getOverlayImage();
+                log.fine("background logo: " + overlayImg);
+
+                if (overlayImg != null)
+                {
+                    frame.setComposite(AC_75PCT);            
+                    int x = (frameBuff.getWidth() - overlayImg.getWidth(null)) / 2;
+                    int y = (frameBuff.getHeight() - overlayImg.getHeight(null)) / 2;            
+                    frame.drawImage(overlayImg, x, y, null);
+                }
+                
+                frame.setComposite(AC_OPAQUE);            
                 paintStatusLine();
-                paintCursor(term.getDisplayCursorPosition());
             }
             catch (NullPointerException e)
             {
@@ -628,8 +662,7 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
 
     public void run()
     {
-        // blinked is a toggle.  When true,
-        // the affected text is 'off'...
+        // blinked is a toggle.  When true, the affected text is 'off'...
         boolean blinked = false;
 
         while (true)
@@ -650,19 +683,28 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
         }
     }
 
-    public void setBackgroundColor(Color c)
+    public void setBackgroundColor(String c)
     {
-        currentBGColor = c;
-        setBackground(c);
+        OpenTermConfig.setProp("color.background", c);
+        currentBGColor = getColor(c);
+        setBackground(currentBGColor);
         refresh();
     }
 
-    public void setBoldColor(Color c)
+    public void setBoldColor(String c)
     {
-        boldColor = c;
+        OpenTermConfig.setProp("color.bold", c);
+        boldColor = getColor(c);
         refresh();
     }
 
+    
+    public void setFontSize(float size)
+    {
+       OpenTermConfig.setProp("font.size", Integer.toString((int) size));
+       setFont(getFont().deriveFont(size));
+    }
+    
     /**
      * Sets the font used to draw the screen. Based on the given font metrics, changes screen size in case if the background rendering
      * buffer is not null.
@@ -674,7 +716,7 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
         super.setFont(newFont);
         log.finer("new font: " + newFont);
         font = newFont;
-        fontsize = font.getSize();
+        fontSize = font.getSize();
 
         if (frame != null)
         {
@@ -700,9 +742,10 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
         }
     }
 
-    public void setForegroundColor(Color c)
+    public void setForegroundColor(String c)
     {
-        currentFGColor = c;
+        OpenTermConfig.setProp("color.foreground", c);
+        currentFGColor = getColor(c);
         refresh();
     }
 
@@ -711,11 +754,11 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
      *
      * @param statusMessage DOCUMENT ME!
      */
-    public void setStatus(String statusMessage)
-    {
-        this.statusMessage = statusMessage;
-        refresh();
-    }
+//    public void setStatus(String statusMessage)
+//    {
+//        this.statusMessage = statusMessage;
+//        refresh();
+//    }
 
     public void setWindowMessage(int msg)
     {
@@ -737,25 +780,25 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
         {
             case TnAction.CONNECTING:
             {
-                setStatus("Connecting");
+                //setStatus("Connecting");
                 break;
             }
 
             case TnAction.X_WAIT:
             {
-                setStatus("X-WAIT");
+                //setStatus("X-WAIT");
                 break;
             }
 
             case TnAction.READY:
             {
-                setStatus("Ready");
+                //setStatus("Ready");
                 break;
             }
 
             case TnAction.DISCONNECTED:
             {
-                setStatus("Disconnected");
+                //setStatus("Disconnected");
                 break;
             }
 
@@ -787,7 +830,7 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
     {
         frame.setColor(term.getBackgroundColor(currentBGColor));
         frame.fillRect(0, 0, char_width * (term.getCols() + 5), char_height * (term.getRows() + 1) + (char_height + char_ascent));
-
+        
         if (paint)
         {
             repaint();

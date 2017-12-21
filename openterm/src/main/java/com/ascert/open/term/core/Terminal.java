@@ -19,6 +19,7 @@
 package com.ascert.open.term.core;
 
 import java.awt.Color;
+import java.awt.Image;
 import java.io.IOException;
 import java.net.UnknownHostException;
 import java.util.Vector;
@@ -356,4 +357,8 @@ public interface Terminal
         return dflt;
     }
 
+    default Image getOverlayImage()
+    {
+        return null;
+    }
 }

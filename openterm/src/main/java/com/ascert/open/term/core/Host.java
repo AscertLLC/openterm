@@ -22,7 +22,6 @@ package com.ascert.open.term.core;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -46,17 +45,16 @@ public class Host implements Serializable
     {
         List<Host> hostLst = new ArrayList<>();
         
-        if (hosts != null)
+        if (hosts != null && !hosts.trim().isEmpty())
         {
             //Pretty crude - adapted from original code
             for (String availableHost : hosts.split(";"))
             {
                 String[] opts = availableHost.split(",");
-                //TODO - Better bounds checking
                 String hostName = opts[0];
-                int hostPort = Integer.parseInt(opts[1]);
-                String useSSL = opts[2];
-                String termType = opts[3];
+                int hostPort = opts.length > 1 ? Integer.parseInt(opts[1]) : 23;
+                String useSSL = opts.length > 2 ? opts[2] : "false";
+                String termType = opts.length > 3 ? opts[3] : "IBM-3278-2";
                 hostLst.add(new Host(hostName, hostPort, termType, "true".equalsIgnoreCase(useSSL), favourites));
             }
         }

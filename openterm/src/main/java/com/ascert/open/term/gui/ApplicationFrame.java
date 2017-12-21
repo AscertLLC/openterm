@@ -26,7 +26,6 @@ import com.ascert.open.term.application.OpenTermConfig;
 
 import java.awt.AWTEvent;
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Event;
 import java.awt.Toolkit;
@@ -66,16 +65,12 @@ public class ApplicationFrame extends JFrame
     {
         6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 32, 36, 40
     };
+    
     public static final String[] COLOR_NAMES =
     {
         "Black", "White", "Green", "Red", "Blue", "Orange", "Turquoise", "Dark Blue", "Light Green"
     };
-    public static final Color[] COLOR_VALUES =
-    {
-        Color.BLACK, Color.WHITE, Color.GREEN, Color.RED, Color.BLUE,
-        Color.ORANGE, Color.CYAN, new Color(0, 51, 102),
-        new Color(204, 255, 204)
-    };
+    
     private JMenuBar menubar;
     private JMenu connect;
     private JToolBar toolbar;
@@ -122,7 +117,10 @@ public class ApplicationFrame extends JFrame
 
     public void disconnect()
     {
-        term.disconnect();
+        if (term != null)
+        {
+            term.disconnect();
+        }
     }
 
     /**
@@ -211,22 +209,22 @@ public class ApplicationFrame extends JFrame
         JMenu fonts = new JMenu("Font Size");
         ButtonGroup fontsGroup = new ButtonGroup();
 
+        int currFontSize = rhp.getFontSize();
+        
         for (int i = 0; i < FONT_SIZES.length; i++)
         {
             int size = FONT_SIZES[i];
 
-            JRadioButtonMenuItem sizeItem = new JRadioButtonMenuItem(new AbstractAction(
-                Integer.toString(size, 10))
+            JRadioButtonMenuItem sizeItem = new JRadioButtonMenuItem(new AbstractAction(Integer.toString(size))
             {
                 public void actionPerformed(ActionEvent evt)
                 {
-                    int size = Integer.parseInt(evt.getActionCommand(),
-                                                10);
+                    int size = Integer.parseInt(evt.getActionCommand());
                     fontSize((float) size);
                 }
             });
 
-            if (size == JTerminalScreen.DEFAULT_FONT_SIZE)
+            if (size == currFontSize)
             {
                 sizeItem.setSelected(true);
             }
@@ -238,113 +236,40 @@ public class ApplicationFrame extends JFrame
         options.add(fonts);
 
         JMenu fontcolor = new JMenu("Font Color");
-        JMenu dfFontColor = new JMenu("Default Font");
-        ButtonGroup fontColorGroup = new ButtonGroup();
-
-        for (int i = 0; i < COLOR_NAMES.length; i++)
-        {
-            String name = COLOR_NAMES[i];
-            JRadioButtonMenuItem colorItem = new JRadioButtonMenuItem(new AbstractAction(
-                name)
+        
+        JMenu dfFontColor = getColorMenu("Default Font", JTerminalScreen.getFgColor(), new AbstractAction()
             {
                 public void actionPerformed(ActionEvent evt)
                 {
                     String name = evt.getActionCommand();
-
-                    for (int idx = 0; idx < COLOR_NAMES.length;
-                         idx++)
-                    {
-                        if (name.equals(COLOR_NAMES[idx]))
-                        {
-                            ApplicationFrame.this.rhp.setForegroundColor(COLOR_VALUES[idx]);
-                        }
-                    }
+                    ApplicationFrame.this.rhp.setForegroundColor(name);
                 }
             });
-
-            if (COLOR_VALUES[i] == JTerminalScreen.DEFAULT_FG_COLOR)
-            {
-                colorItem.setSelected(true);
-            }
-
-            dfFontColor.add(colorItem);
-            fontColorGroup.add(colorItem);
-        }
-
         fontcolor.add(dfFontColor);
 
-        JMenu bldFontColor = new JMenu("Bold Font");
-        ButtonGroup bldFontGroup = new ButtonGroup();
-
-        for (int i = 0; i < COLOR_NAMES.length; i++)
-        {
-            String name = COLOR_NAMES[i];
-            JRadioButtonMenuItem colorItem = new JRadioButtonMenuItem(new AbstractAction(
-                name)
+        JMenu bldFontColor = getColorMenu("Bold Font", JTerminalScreen.getBoldColor(), new AbstractAction()
             {
                 public void actionPerformed(ActionEvent evt)
                 {
                     String name = evt.getActionCommand();
-
-                    for (int idx = 0; idx < COLOR_NAMES.length;
-                         idx++)
-                    {
-                        if (name.equals(COLOR_NAMES[idx]))
-                        {
-                            ApplicationFrame.this.rhp.setBoldColor(COLOR_VALUES[idx]);
-                        }
-                    }
+                    ApplicationFrame.this.rhp.setBoldColor(name);
                 }
             });
-
-            if (COLOR_VALUES[i] == JTerminalScreen.DEFAULT_BOLD_COLOR)
-            {
-                colorItem.setSelected(true);
-            }
-
-            bldFontColor.add(colorItem);
-            bldFontGroup.add(colorItem);
-        }
-
         fontcolor.add(bldFontColor);
         options.add(fontcolor);
         options.addSeparator();
 
-        JMenu bgcolor = new JMenu("Background Color");
-        ButtonGroup bgcolorGroup = new ButtonGroup();
-
-        for (int i = 0; i < COLOR_NAMES.length; i++)
-        {
-            String name = COLOR_NAMES[i];
-            JRadioButtonMenuItem colorItem = new JRadioButtonMenuItem(new AbstractAction(
-                name)
+        JMenu bgcolor = getColorMenu("Background Color", JTerminalScreen.getBgColor(), new AbstractAction()
             {
                 public void actionPerformed(ActionEvent evt)
                 {
                     String name = evt.getActionCommand();
-
-                    for (int idx = 0; idx < COLOR_NAMES.length;
-                         idx++)
-                    {
-                        if (name.equals(COLOR_NAMES[idx]))
-                        {
-                            ApplicationFrame.this.rhp.setBackgroundColor(COLOR_VALUES[idx]);
-                        }
-                    }
+                    ApplicationFrame.this.rhp.setBackgroundColor(name);
                 }
             });
-
-            if (COLOR_VALUES[i] == JTerminalScreen.DEFAULT_BG_COLOR)
-            {
-                colorItem.setSelected(true);
-            }
-
-            bgcolor.add(colorItem);
-            bgcolorGroup.add(colorItem);
-        }
-
         options.add(bgcolor);
         options.addSeparator();
+        
         JCheckBoxMenuItem optFkeyBar = new JCheckBoxMenuItem("Show F-Key bar");
         optFkeyBar.setSelected("true".equals(OpenTermConfig.getProp("toolbar.fkey.enabled")));
         optFkeyBar.addItemListener(new ItemListener()
@@ -389,19 +314,49 @@ public class ApplicationFrame extends JFrame
             }
         });
 
-        //This is not ideal as initially it shows a blank screen but with 3270 status bar.
-        //Be nicer to show something more "neutral"
+        // Not perfect as initially it shows a blank screen, but at least it can be made of an expected type
+        // Could be nicer to show something more "neutral"
         if (term == null)
         {
-            term = new Term3270();
+            try
+            {
+                term = TerminalFactoryRegistrar.createTerminal(OpenTermConfig.getProp("startup.type"));
+            }
+            catch (Exception ex)
+            {
+                log.warning(ex.getLocalizedMessage());
+            }
         }
-        rhp = new JTerminalScreen(term);
+        rhp = new JTerminalScreen(term != null ? term : new Term3270());
         add("Center", rhp);
     }
 
+    private JMenu getColorMenu(String menuText, String selectedItemName, Action act)
+    {
+        JMenu color = new JMenu(menuText);
+        ButtonGroup colorGroup = new ButtonGroup();
+
+        for (int i = 0; i < COLOR_NAMES.length; i++)
+        {
+            String name = COLOR_NAMES[i];
+            JRadioButtonMenuItem colorItem = new JRadioButtonMenuItem(name);
+            colorItem.addActionListener(act);
+
+            if (COLOR_NAMES[i].equals(selectedItemName))
+            {
+                colorItem.setSelected(true);
+            }
+
+            color.add(colorItem);
+            colorGroup.add(colorItem);
+        }
+        
+        return color;
+    }
+    
     private void fontSize(float size)
     {
-        rhp.setFont(rhp.getFont().deriveFont(size));
+        rhp.setFontSize(size);
         revalidate();
         repaint();
         pack();

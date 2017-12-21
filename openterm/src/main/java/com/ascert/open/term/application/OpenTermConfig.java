@@ -79,6 +79,21 @@ public class OpenTermConfig
         getConfig().loadDefaults(propsName);
     }
 
+    public static int getIntProp(String key, int defaultValue)
+    {
+        int retval;
+        try
+        {
+            retval = Integer.parseInt(getProp(key));
+        }
+        catch (NumberFormatException nfe)
+        {
+            retval = defaultValue;
+        }
+        
+        return retval;
+    }
+    
     public static String getProp(String key, String defaultValue)
     {
         return getConfig().getProperty(key, defaultValue);
