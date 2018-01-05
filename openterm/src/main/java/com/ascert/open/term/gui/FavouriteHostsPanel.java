@@ -144,7 +144,7 @@ public class FavouriteHostsPanel extends JPanel
             Host hst = hosts.get(row);
             switch (col)
             {
-                case 0: return hst.toString();
+                case 0: return hst.getDisplayName();
                 case 1: return hst.isFavourite();
             }
             

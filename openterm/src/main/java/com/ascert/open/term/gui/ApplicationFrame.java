@@ -434,7 +434,7 @@ public class ApplicationFrame extends JFrame
         {
             final Host hst = hosts.next();
             // quick hack for now - tooltips maybe neater
-            String menuTxt = hst.toString();
+            String menuTxt = hst.getDisplayName();
             connect.add(new AbstractAction(menuTxt)
             {
                 public void actionPerformed(ActionEvent evt)
@@ -537,19 +537,19 @@ public class ApplicationFrame extends JFrame
     {
         log.fine("** connect " + host);
 
-        setTitle(productName + " - Connecting to " + host.toString());
+        setTitle(productName + " - Connecting to " + host.getDisplayName());
 
         try
         {
-            term = TerminalFactoryRegistrar.createTerminal(host.getTermType());
+            term = TerminalFactoryRegistrar.createTerminal(host);
             rhp.setTerminal(term);
 
             repaint();
             pack();
 
-            term.connect(host.getHostName(), host.getPort(), host.isEncryption());
+            term.connect();
             requestFocus();
-            setTitle(productName + " - Connected to " + host.toString());
+            setTitle(productName + " - Connected to " + host.getDisplayName());
         }
         catch (Exception e)
         {

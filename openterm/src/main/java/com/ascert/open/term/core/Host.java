@@ -21,25 +21,30 @@
 package com.ascert.open.term.core;
 
 import java.io.Serializable;
+import java.io.StringReader;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import com.ascert.open.term.application.OpenTermConfig;
+
+import static java.util.regex.Pattern.DOTALL;
+import static java.util.regex.Pattern.MULTILINE;
 
 /**
  * Holds information about a destination terminal server host.
  *
  * @since 0.1
  */
-public class Host implements Serializable
+public class Host implements Serializable, SimpleConfig
 {
     private static final Logger log = Logger.getLogger(Host.class.getName());
 
-    private String termType;
-    private String hostName;
-    private int port;
-    protected boolean encryption;
-    protected boolean favourite;
-
+    Properties props = new Properties();
 
     public static List<Host> getHostStringAsList(String hosts, boolean favourites)
     {
@@ -72,14 +77,56 @@ public class Host implements Serializable
         {
             if (host.isFavourite())
             {
-                buf.append(host.toString());
-                buf.append(";");
+                try (StringWriter sw = new StringWriter())
+                {
+                    buf.append("<<<");
+                    host.props.store(sw, null);
+                    // Strip out the initial comment line - serves no use but wasting space
+                    //TODO - could be a useful utility method really!
+                    String sProps = sw.toString();
+                    buf.append(sProps.substring(sProps.indexOf('\n')));
+                    buf.append(">>>");
+                }
+                catch (Exception ex)
+                {
+                    log.severe("Exception storing favourites: " + ex);
+                }
             }
         }
         
         return buf.toString();
     }
     
+    
+    public static List<Host> getHostListFromConfigString(String cfgString)
+    {
+        List<Host> hostLst = new ArrayList<>();
+        Pattern p = Pattern.compile("(<<<)(.*?)(>>>)", DOTALL);
+        
+        if (cfgString != null && !cfgString.trim().isEmpty())
+        {
+            Matcher mtch = p.matcher(cfgString);
+            while (mtch.find())
+            {
+                try (StringReader sr = new StringReader(mtch.group(2)))
+                {
+                    Host hst = new Host();
+                    hst.props.load(sr);
+                    hostLst.add(hst);
+                }
+                catch (Exception ex)
+                {
+                    log.severe("Exception loading favourites: " + ex);
+                }
+            }
+        }
+        
+        return hostLst;
+    }
+    
+    public Host()
+    {
+    }
     
     public Host(String hostName, int port, String termType)
     {
@@ -93,26 +140,73 @@ public class Host implements Serializable
     
     public Host(String hostName, int port, String termType, boolean encryption, boolean favourite)
     {
-        this.hostName = hostName;
-        this.port = port;
-        this.termType = termType;
-        this.encryption = encryption;
-        this.favourite = favourite;
+        setHostName(hostName);
+        setPort(port);
+        setTermType(termType);
+        setEncryption(encryption);
+        setFavourite(favourite);
+        System.out.println("*** Host props: " + props);
     }
 
+    
+    public String toString()
+    {
+        //System.out.println(String.format("{{%s}}", props.toString()));
+        //return String.format("%s,%d,%b,%s", getHostName(), getPort(), isEncryption(), getTermType());
+        return String.format("{{%s}}", props.toString());
+    }
+
+    public String getDisplayName()
+    {
+        return props.getProperty("host.displayName", String.format("%s:%d", getHostName(), getPort()));
+    }
+    
+    /**
+     * @return the termType
+     */
     public String getTermType()
     {
-        return termType;
+        return getProperty("host.termType");
     }
 
+    /**
+     * @param termType the termType to set
+     */
+    public void setTermType(String termType)
+    {
+        setProperty("host.termType", termType);
+    }
+
+    /**
+     * @return the hostName
+     */
     public String getHostName()
     {
-        return hostName;
+        return getProperty("host.hostName");
     }
 
+    /**
+     * @param hostName the hostName to set
+     */
+    public void setHostName(String hostName)
+    {
+        setProperty("host.hostName", hostName);
+    }
+
+    /**
+     * @return the port
+     */
     public int getPort()
     {
-        return port;
+        return Integer.parseInt(getProperty("host.hostPort", "0"));
+    }
+
+    /**
+     * @param port the port to set
+     */
+    public void setPort(int port)
+    {
+        setProperty("host.hostPort", Integer.toString(port));
     }
 
     /**
@@ -120,7 +214,15 @@ public class Host implements Serializable
      */
     public boolean isEncryption()
     {
-        return encryption;
+        return Boolean.getBoolean(getProperty("host.encryption"));
+    }
+
+    /**
+     * @param encryption the encryption to set
+     */
+    public void setEncryption(boolean encryption)
+    {
+        setProperty("host.encryption", Boolean.toString(encryption));
     }
 
     /**
@@ -128,7 +230,7 @@ public class Host implements Serializable
      */
     public boolean isFavourite()
     {
-        return favourite;
+        return Boolean.parseBoolean(getProperty("host.favourite"));
     }
 
     /**
@@ -136,12 +238,44 @@ public class Host implements Serializable
      */
     public void setFavourite(boolean favourite)
     {
-        this.favourite = favourite;
-    }
-    
-    public String toString()
-    {
-        return String.format("%s,%d,%b,%s", getHostName(), getPort(), isEncryption(), getTermType());
+        setProperty("host.favourite", Boolean.toString(favourite));
     }
 
+    @Override
+    public String getProperty(String key, String defaultValue)
+    {
+        String val = props.getProperty(key);
+        //TODO - might need to revisit whether we always fall back here
+        if (val == null)
+        {
+            val = OpenTermConfig.getProp(key, defaultValue);
+        }
+        
+        log.finer(String.format("Host property: %s, val=%s", key, val));
+        return val;
+    }
+
+    @Override
+    public String setProperty(String key, String value)
+    {
+        Object prev = props.setProperty(key, value);
+        return (prev != null) ? prev.toString() : null;
+    }
+        
+    public boolean clear()
+    {
+        // if we ever model object field values as props, we need to make sure this doesn't clear them!
+        props.clear();
+        return true;
+    }
+    
+    public void addProperties(Properties props)
+    {
+        log.finer("Adding Host props: " + props);
+        if (props != null)
+        {
+            this.props.putAll(props);
+        }
+    }
+    
 }

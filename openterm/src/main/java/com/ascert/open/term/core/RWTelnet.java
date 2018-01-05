@@ -247,53 +247,6 @@ public class RWTelnet implements Runnable
     }
 
     /**
-     * TODO - SessionServer feature of the original freehost3270 is still present but not used/exposed in current UI code.
-     *
-     * Opens a network connection to the <code>SessionServer</code>.
-     *
-     * @param host     Hostname or IP address of the SessionServer/Host
-     * @param port     the port number the SessionServer/Host is running on
-     * @param host3270 the Hostname or IP address of the 3270Host (if using SessionServer)
-     * @param port3270 port number of the target terminal server.
-     */
-    protected void connect(String host, int port, String host3270, int port3270)
-    {
-        log.fine("connecting to proxy " + host + ":" + port + "; destination " + host3270 + ":" + port3270);
-
-        try
-        {
-            tnSocket = new Socket(host, port);
-            is = tnSocket.getInputStream();
-            os = tnSocket.getOutputStream();
-
-            if (host3270 != null)
-            {
-                log.fine("sending host: " + host3270);
-                os.write(host3270.getBytes("ASCII"));
-                os.write((byte) 0xCC);
-                os.write((byte) port3270);
-                os.flush();
-                log.fine("sent host");
-            }
-            else
-            {
-                os.write((byte) 0xCC);
-                os.flush();
-            }
-
-            sessionThread = new Thread(this);
-            sessionThread.start();
-
-            log.fine("telnet successfully connected");
-        }
-        catch (Exception e)
-        {
-            e.printStackTrace();
-            log.severe("telnet failed to connect, " + e.getMessage());
-        }
-    }
-
-    /**
      * Performs a direct connection to the terminal server ommiting <code>SessionServer</code> relay. added 5/12/98 to facilitate packaging
      * of the 3270 Servlet Developer's Toolkit
      *

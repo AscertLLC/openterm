@@ -218,7 +218,7 @@ public interface Terminal
     void setCursorPosition(int newCursorPos, boolean updateClient);
 
     /**
-     * This method implements connections directly to a host, bypassing the SessionServer.
+     * This method implements connections directly to a host
      *
      * @param host       The hostname of the TN3270 host to connect to
      * @param port       The port on which to connect to the TN3270 host
@@ -227,25 +227,16 @@ public interface Terminal
      * @throws IOException          DOCUMENT ME!
      * @throws UnknownHostException DOCUMENT ME!
      */
-    void connect(String host, int port, boolean encryption) throws IOException, UnknownHostException;
+    default void connect(String host, int port, boolean encryption) throws IOException, UnknownHostException
+    {
+        setHost(new Host(host, port, getTermType(), encryption));
+        connect();
+    }
 
+    void connect() throws IOException, UnknownHostException;
+    
     //TODO - should probably abstract out some session handling object, with listener updates
     //       for objects needing status
-    /**
-     * This method attempts to connect this 3270 object to the specified SessionServer and 3270 Host.
-     *
-     * <p>
-     * <em>IMPORTANT:</em> this setting must match the SessionServer's encryption setting in order to communicate successfully. the current
-     * encryption setting of the SessionServer can be obtained by calling <code><i>&gt;SessionServer&lt;</i>.getEncryption()</code>
-     * </p>
-     *
-     * @param host       the hostname or ip address of the SessionServer
-     * @param port       the SessionServer's port
-     * @param host3270   the hostname or ip address of the 3270 host. (If using SessionServer)
-     * @param port3270   the port of the 3270 host
-     * @param encryption <code>true</code> if encryption should be used, false otherwise.
-     */
-    void connect(String host, int port, String host3270, int port3270, boolean encryption);
 
     /**
      * Disconnects this RW3270 object from the current Session.
@@ -361,4 +352,15 @@ public interface Terminal
     {
         return null;
     }
+    
+    /**
+     * @return the host
+     */
+    public Host getHost();
+
+    /**
+     * @param host the host to set
+     */
+    public void setHost(Host host);
+    
 }

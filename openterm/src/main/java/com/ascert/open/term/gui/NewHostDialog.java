@@ -75,7 +75,7 @@ public class NewHostDialog extends JDialog implements ActionListener,
     private JPanel termOptsPanel;
     private CardLayout cl;
 
-    private Host host = null;
+    private Host host = new Host();
 
     public NewHostDialog()
     {
@@ -260,11 +260,14 @@ public class NewHostDialog extends JDialog implements ActionListener,
             {
                 // we're done; clear and dismiss the dialog
                 TermOptsHandler toh = termFactoryList.get(typeCombo.getSelectedIndex());
-                String terminalType = toh.getTermType();
-                Number port = (Number) portField.getValue();
+                toh.setHostOptions(host);
                 
-                host = new Host(hostField.getText(), port.intValue(), terminalType, useEncryptionField.isSelected());
+                host.setHostName(hostField.getText());
+                Number port = (Number) portField.getValue();
+                host.setPort(port.intValue());
+                host.setEncryption(useEncryptionField.isSelected());
                 host.setFavourite(addToFavourites.isSelected());
+                
                 log.fine(String.format("New host %s", host.toString()));
                 clearAndHide();
             }
@@ -288,27 +291,28 @@ public class NewHostDialog extends JDialog implements ActionListener,
 
     public static class TermOptsHandler
     {
-
         String type;
         TerminalFactory termFactory;
-        Component pnl;
+        TermOptions optsPnl;
 
         public TermOptsHandler(String type, TerminalFactory termFactory)
         {
             this.type = type;
             this.termFactory = termFactory;
-            pnl = termFactory.getOptionsPanel(type);
+            optsPnl = termFactory.getOptionsPanel(type);
         }
 
         public Component getOptsPanel()
         {
-            return pnl != null ? pnl : new JPanel();
+            return (optsPnl != null & optsPnl instanceof Component) ? (Component) optsPnl : new JPanel();
         }
 
-        public String getTermType()
+        public void setHostOptions(Host host)
         {
-            // Returns the String encoded form of the term type representing the options selected
-            return pnl != null ? pnl.toString() : type;
+            String pnlType = optsPnl.getTermType();
+            host.setTermType(pnlType != null ? pnlType : type);
+            host.addProperties(optsPnl.getProperties());
+            host.getProperty("t6530.service.choice");
         }
 
         public String toString()

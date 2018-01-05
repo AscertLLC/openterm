@@ -87,6 +87,14 @@ public class TerminalFactoryRegistrar
 
         throw new Exception("Unable to initialise terminal, unsupported terminal type: " + termType);
     }
+    
+    public static Terminal createTerminal(Host host)
+        throws Exception
+    {
+        Terminal term = createTerminal(host.getTermType());
+        term.setHost(host);
+        return term;
+    }
 
     //////////////////////////////////////////////////
     // STATIC PUBLIC METHODS
@@ -118,4 +126,5 @@ public class TerminalFactoryRegistrar
     //////////////////////////////////////////////////
     // NON-STATIC INNER CLASSES
     //////////////////////////////////////////////////
+
 }

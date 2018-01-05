@@ -16,33 +16,25 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-package com.ascert.open.term.core;
+package com.ascert.open.term.gui;
 
-import java.awt.Component;
-
-import com.ascert.open.term.gui.TermOptions;
+import java.util.Properties;
 
 /**
  *
- * @version 1,0 31-May-2017
- * @author srm
- * @history 31-May-2017 srm Created
+ * @version 1,0 03-Jan-2018
+ * @author rhw
+ * @history
+ *      03-Jan-2018    rhw        Created
  */
-public interface TerminalFactory
+public interface TermOptions
 {
 
-    default void init()
-    {
-    }
+    //////////////////////////////////////////////////
+    // INTERFACE METHODS
+    //////////////////////////////////////////////////
 
-    String[] getTerminalTypes();
-
-    default TermOptions getOptionsPanel(String termType)
-    {
-        return null;
-    }
-
-    boolean isSupported(String termType);
-
-    Terminal getTerminal(String termType);
+    default Properties getProperties()  { return null; }
+    
+    default String getTermType() { return null; }
 }

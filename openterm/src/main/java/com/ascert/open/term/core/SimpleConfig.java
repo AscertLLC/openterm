@@ -53,7 +53,7 @@ public interface SimpleConfig
     {
     }
 
-    default boolean clearPreferences() { return false; }
+    default boolean clear() { return false; }
     
     //////////////////////////////////////////////////
     // PROTECTED INSTANCE METHODS

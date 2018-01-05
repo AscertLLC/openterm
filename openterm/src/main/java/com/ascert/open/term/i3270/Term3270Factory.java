@@ -19,7 +19,6 @@
 package com.ascert.open.term.i3270;
 
 import java.awt.Component;
-import java.awt.GridLayout;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -33,6 +32,7 @@ import javax.swing.SpringLayout;
 import com.ascert.open.term.core.Terminal;
 import com.ascert.open.term.core.TerminalFactory;
 import com.ascert.open.term.gui.SpringUtilities;
+import com.ascert.open.term.gui.TermOptions;
 
 /**
  *
@@ -112,7 +112,7 @@ public class Term3270Factory implements TerminalFactory
     }
 
     @Override
-    public synchronized Component getOptionsPanel(String termType)
+    public synchronized TermOptions getOptionsPanel(String termType)
     {
         return new OptsPanel3270(termType);
     }
@@ -140,7 +140,9 @@ public class Term3270Factory implements TerminalFactory
     // NON-STATIC INNER CLASSES
     //////////////////////////////////////////////////
     
-    public class OptsPanel3270 extends JPanel
+    public class OptsPanel3270 
+            extends JPanel
+            implements TermOptions
     {
 
         String termType;
@@ -189,7 +191,7 @@ public class Term3270Factory implements TerminalFactory
         }
 
         // Return the string encoded form of the terminal type represented by these options
-        public String toString()
+        public String getTermType()
         {
             return Term3270.formatTermTypeString(termType, modelCombo.getSelectedIndex() + 2, extAttr3270.isSelected());
         }

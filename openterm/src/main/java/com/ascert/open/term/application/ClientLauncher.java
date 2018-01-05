@@ -75,11 +75,11 @@ public class ClientLauncher
         
         log.fine("launching FreeHost standalone GUI client with parameters:");
         log.fine(KEY_HOSTS + " = " + hosts);
-        log.fine(" favour.hosts = " + favouriteHosts);
+        log.fine(" favourite.hosts = " + favouriteHosts);
 
         TerminalFactoryRegistrar.initTermTypeFactories(factories);
 
-        List<Host> availableHosts = Host.getHostStringAsList(favouriteHosts, true);
+        List<Host> availableHosts = Host.getHostListFromConfigString(favouriteHosts);
         availableHosts.addAll(Host.getHostStringAsList(hosts, false));
         ApplicationFrame appFrame = new ApplicationFrame(availableHosts, null);
         appFrame.setVisible(true);

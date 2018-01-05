@@ -54,6 +54,8 @@ public abstract class AbstractTerminal
     //////////////////////////////////////////////////
     // INSTANCE VARIABLES
     //////////////////////////////////////////////////
+    
+    protected Host host;
     protected TnAction client;
     protected TnStreamParser tnParser;
 
@@ -609,33 +611,6 @@ public abstract class AbstractTerminal
 
     //TODO - should probably abstract out some session handling object, with listener updates
     //       for objects needing status
-    /**
-     * TODO - SessionServer feature of the original freehost3270 is still present but not used/exposed in current UI code.
-     *
-     * This method attempts to connect this 3270 object to the specified SessionServer and 3270 Host.
-     *
-     * <p>
-     * <em>IMPORTANT:</em> this setting must match the SessionServer's encryption setting in order to communicate successfully. the current
-     * encryption setting of the SessionServer can be obtained by calling <code><i>&gt;SessionServer&lt;</i>.getEncryption()</code>
-     * </p>
-     *
-     * @param host       the hostname or ip address of the SessionServer
-     * @param port       the SessionServer's port
-     * @param host3270   the hostname or ip address of the 3270 host. (If using SessionServer)
-     * @param port3270   the port of the 3270 host
-     * @param encryption <code>true</code> if encryption should be used, false otherwise.
-     */
-    public void connect(String host, int port, String host3270, int port3270, boolean encryption)
-    {
-        tn.setEncryption(encryption);
-        log.fine("connect " + host + ":" + port + "; " + host3270 + ":" + port3270);
-        //Wipe down any possible old remnants from previous session
-        initTerm();
-        client.status(TnAction.CONNECTING);
-        tn.connect(host, port, host3270, port3270);
-        log.fine("connected");
-        client.refresh();
-    }
 
     /**
      * This method implements connections directly to a host, bypassing the SessionServer.
@@ -646,15 +621,15 @@ public abstract class AbstractTerminal
      * @throws IOException          DOCUMENT ME!
      * @throws UnknownHostException DOCUMENT ME!
      */
-    public void connect(String host, int port, boolean encryption)
+    public void connect()
         throws IOException, UnknownHostException
     {
-        tn.setEncryption(encryption);
-        log.fine("connecting " + host + ":" + port);
+        tn.setEncryption(host.isEncryption());
+        log.fine("connecting " + host + ":" + host.getPort());
         //Wipe down any possible old remnants from previous session
         initTerm();
         client.status(TnAction.CONNECTING);
-        tn.connect(host, port);
+        tn.connect(host.getHostName(), host.getPort());
         log.fine("connecting complete");
         client.refresh();
     }
@@ -717,7 +692,7 @@ public abstract class AbstractTerminal
     {
         this.getActivePage().setFieldsChanged(dirty);
     }
-
+    
     public void setStatusChars(int off, String conv)
     {
         setStatusChars(off, conv, null);
@@ -745,6 +720,23 @@ public abstract class AbstractTerminal
     {
         return statusLine[off];
     }
+    
+    /**
+     * @return the host
+     */
+    public Host getHost()
+    {
+        return host;
+    }
+
+    /**
+     * @param host the host to set
+     */
+    public void setHost(Host host)
+    {
+        this.host = host;
+    }
+
 
     //////////////////////////////////////////////////
     // PROTECTED INSTANCE METHODS

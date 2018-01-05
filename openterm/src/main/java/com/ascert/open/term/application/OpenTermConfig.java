@@ -111,7 +111,7 @@ public class OpenTermConfig
 
     public static boolean clearPrefs()
     {
-        return getConfig().clearPreferences();
+        return getConfig().clear();
     }
     
     // Keys in property files sometimes need quotes to preserve spaces or make them easier to read
@@ -213,7 +213,7 @@ public class OpenTermConfig
         }
     }
 
-    public boolean clearPreferences()
+    public boolean clear()
     {
         try
         {
