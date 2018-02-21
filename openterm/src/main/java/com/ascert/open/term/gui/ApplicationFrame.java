@@ -81,6 +81,11 @@ public class ApplicationFrame extends JFrame
     private boolean embeddedUse = false;
     private String productName;
 
+    // Allows a view-only type mode, such as when being controlled by an external program
+    // Although the keyboard and mouse input are disabled, characters and keys can still be injected
+    // by a controlling program
+    protected boolean interactionAllowed = true;
+    
     /**
      * No-ops constructor. Asks users to enter the connection settings in the corresponding dialog box then proceeds as normal.
      */
@@ -110,6 +115,23 @@ public class ApplicationFrame extends JFrame
         this.embeddedUse = embeddedUse;
     }
 
+    /**
+     * @return the interactionAllowed
+     */
+    public boolean isInteractionAllowed()
+    {
+        return interactionAllowed;
+    }
+
+    /**
+     * @param kbdEnabled the interactionAllowed to set
+     */
+    public void setInteractionAllowed(boolean interactionAllowed)
+    {
+        this.interactionAllowed = interactionAllowed;
+        refreshInteractionHandling();
+    }
+    
     public void actionPerformed(ActionEvent evt)
     {
         log.fine("dispatching action event");
@@ -328,9 +350,39 @@ public class ApplicationFrame extends JFrame
             }
         }
         rhp = new JTerminalScreen(term != null ? term : new Term3270());
+
+        if (!this.interactionAllowed)
+        {
+            // Just in case RHP was null when interactions originally disabled
+            refreshInteractionHandling();
+        }
+        
         add("Center", rhp);
     }
 
+    
+    private void refreshInteractionHandling()
+    {
+        if (rhp != null)
+        {
+            rhp.setKbdEnabled(interactionAllowed);
+        }
+        
+        setMenusEnabled(interactionAllowed);
+    }
+    
+    // Might at a later stage want to only disable certain menus
+    private void setMenusEnabled(boolean enabled)
+    {
+        if (menubar != null)
+        {
+            for (int ix = 0; ix < menubar.getMenuCount(); ix ++)
+            {
+                menubar.getMenu(ix).setEnabled(enabled);
+            }
+        }
+    }
+    
     private JMenu getColorMenu(String menuText, String selectedItemName, Action act)
     {
         JMenu color = new JMenu(menuText);
@@ -563,5 +615,6 @@ public class ApplicationFrame extends JFrame
                                       "Failed to connect to the server:\n" + message,
                                       "Connection failure", JOptionPane.WARNING_MESSAGE);
     }
+
 
 }

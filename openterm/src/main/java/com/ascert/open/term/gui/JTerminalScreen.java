@@ -36,6 +36,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.swing.ActionMap;
+import javax.swing.ComponentInputMap;
 import javax.swing.InputMap;
 import javax.swing.JButton;
 import javax.swing.JPanel;
@@ -174,7 +175,9 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
 
     private InputMap origInputMap;
     private ActionMap origActionMap;
-
+    
+    private boolean kbdEnabled = true;
+    
     /**
      * Construct a new GUI session with a terminalModel of 2, and a terminalType of 3279-E.
      */
@@ -248,13 +251,30 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
         }
     }
 
+    void setKbdEnabled(boolean kbdEnabled)
+    {
+        //TODO - also need to disable mouse selection at some stage.
+        //       it's a limited feature at present, and so probably non critical
+        if (kbdEnabled)
+        {
+            addKeyListener(kHandler.getKeyListener());
+            this.setInputMap(WHEN_IN_FOCUSED_WINDOW, kHandler.getInputMap(origInputMap));
+            this.setActionMap(kHandler.getActionMap(origActionMap));
+        }
+        else
+        {
+            removeKeyListener(kHandler.getKeyListener());
+            this.setInputMap(WHEN_IN_FOCUSED_WINDOW, new ComponentInputMap(this));
+            this.setActionMap(new ActionMap());
+        }
+            
+        this.kbdEnabled = kbdEnabled;
+    }
+    
     private void init()
     {
-        kHandler = term.getKeyHandler();
-        addKeyListener(kHandler.getKeyListener());
-
-        this.setInputMap(WHEN_IN_FOCUSED_WINDOW, kHandler.getInputMap(origInputMap));
-        this.setActionMap(kHandler.getActionMap(origActionMap));
+        kHandler = term.getKeyHandler();        
+        setKbdEnabled(true);
 
         buildToolBar();
 
@@ -654,8 +674,8 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
             }
             catch (NullPointerException e)
             {
-                e.printStackTrace();
-                log.severe("exception in RHPanel.paintComponent: " + e.getMessage());
+                e.printStackTrace(System.out);
+                log.severe("exception in JTerminalScreen.paintComponent: " + e.getMessage());
             }
         }
     }
