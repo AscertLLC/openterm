@@ -145,7 +145,6 @@ public class Host implements Serializable, SimpleConfig
         setTermType(termType);
         setEncryption(encryption);
         setFavourite(favourite);
-        System.out.println("*** Host props: " + props);
     }
 
     
