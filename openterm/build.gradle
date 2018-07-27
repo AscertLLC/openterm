@@ -1,3 +1,6 @@
+dependencies {
+    compile project(":vncj")
+}
 
 task execute(type:JavaExec) {
     main = "com.ascert.open.term.application.ClientLauncher"

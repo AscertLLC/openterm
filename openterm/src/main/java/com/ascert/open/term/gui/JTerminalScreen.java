@@ -23,6 +23,8 @@
  */
 package com.ascert.open.term.gui;
 
+import gnu.vnc.ScreenImage;
+
 import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.font.FontRenderContext;
@@ -32,6 +34,8 @@ import java.awt.print.PageFormat;
 import java.awt.print.Printable;
 import java.awt.print.PrinterException;
 import java.awt.print.PrinterJob;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -50,6 +54,8 @@ import com.ascert.open.term.core.TermChar;
 import com.ascert.open.term.core.Terminal;
 import com.ascert.open.term.core.TnAction;
 
+import gnu.vnc.ScreenImageListener;
+
 /**
  * A SWING component that interactively renders terminal screen contents and handles user to terminal interaction.
  *
@@ -63,7 +69,7 @@ import com.ascert.open.term.core.TnAction;
  * @see #setFont(Font)
  * @since 0.1 RHPanel
  */
-public class JTerminalScreen extends JPanel implements TnAction, Printable
+public class JTerminalScreen extends JPanel implements TnAction, Printable, ScreenImage
 {
     private static final Logger log = Logger.getLogger(JTerminalScreen.class.getName());
 
@@ -178,12 +184,19 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
     
     private boolean kbdEnabled = true;
     
+    // Keyboad Lock listener handling - rather trivial implementation but workable for now
+    protected final Set<ScreenImageListener> listeners = new CopyOnWriteArraySet<>();
+    
+    
     /**
      * Construct a new GUI session with a terminalModel of 2, and a terminalType of 3279-E.
      */
-    public JTerminalScreen(Terminal term)
+    public JTerminalScreen(Terminal term, JToolBar toolbar)
     {
         super();
+        // We need a toolbar reference because F-Key names are terminal type sensitive, and hence
+        // need initialising on new terminals
+        this.toolbar = toolbar;
 
         fontSize = getFontSize();
         font = new Font(getFontName(), Font.PLAIN, fontSize);
@@ -220,21 +233,12 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
     private void buildToolBar()
     {
 
-        if (this.getParent() == null || kHandler == null)
+        if (toolbar == null || kHandler == null)
         {
             return;
         }
 
-        if (toolbar == null)
-        {
-            toolbar = new JToolBar();
-            //toolbar.setFloatable( false );
-            this.getParent().add(toolbar, BorderLayout.PAGE_START);
-        }
-        else
-        {
-            toolbar.removeAll();
-        }
+        toolbar.removeAll();
 
         // Very basic approach for now. 
         // Really needs proper Bounds checks, handling for terms with only 1 button row etc.
@@ -360,13 +364,6 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
         synchronized (term.getLockObject())
         {
             renderScreen();
-
-            // Only display if enabled
-            if (toolbar != null)
-            {
-                toolbar.setVisible("true".equals(OpenTermConfig.getProp("toolbar.fkey.enabled")));
-            }
-
             repaint();
         }
     }
@@ -671,6 +668,10 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
                 
                 frame.setComposite(AC_OPAQUE);            
                 paintStatusLine();
+                
+                //TODO - test out how much changes
+                checkChanges();
+                fireScreenListeners();                
             }
             catch (NullPointerException e)
             {
@@ -680,6 +681,53 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
         }
     }
 
+    private int[] lastFrame = new int[0];
+    
+    private synchronized void checkChanges()
+    {
+//        int imgSize = frameBuff.getWidth() * frameBuff.getHeight();
+//    
+//        if (imgSize != lastFrame.length)
+//        {
+//            lastFrame = new int[imgSize];
+//        }
+        
+        int[] newFrame = frameBuff.getRGB(0, 0, frameBuff.getWidth(), frameBuff.getHeight(), null, 0, 
+                                          // last param very confusing, scanline stride is width of image i.e. start of next row:
+                                          // not always the same apparently!
+                                          frameBuff.getWidth()); 
+        
+        int changedBytes = newFrame.length;
+        int blankBytes = 0;
+        
+        if (lastFrame.length == newFrame.length)
+        {
+            for (int ix = 0; ix < newFrame.length; ix++)
+            {
+                if (newFrame[ix] == lastFrame[ix])
+                {
+                    changedBytes--;
+                }
+                
+                if (newFrame[ix] == currentBGColor.getRGB())
+                {
+                    blankBytes++;
+                }
+                
+            }
+        }
+        
+        System.out.println(String.format("*** newFrame size: %d, changed bytes: %d, background bytes: %d", 
+                                         newFrame.length * Integer.BYTES,
+                                         changedBytes * Integer.BYTES,
+                                         blankBytes * Integer.BYTES
+                            ));
+        
+        
+        lastFrame = newFrame;
+        
+    }
+    
     public void run()
     {
         // blinked is a toggle.  When true, the affected text is 'off'...
@@ -926,13 +974,20 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
     }
 
     /**
-     * Paints backgoround buffered image on the given graphics context.
+     * Paints background buffered image on the given graphics context. Normally one would call
+     * super.paintComponent, but in this case we're not really interested in L&F delegates or other things the
+     * super class may take care of. We simply want the terminal screen rendered into a blank panel and nothing else that
+     * calling super might trigger. The approach may also help in a headless rendering scenario - we will get a buffer
+     * rendered here without exceptions being thrown.
      *
      * @param g DOCUMENT ME!
      */
     protected void paintComponent(Graphics g)
     {
-        g.drawImage(frameBuff, 0, 0, this);
+        if (g != null)
+        {
+            g.drawImage(frameBuff, 0, 0, this);
+        }
     }
 
     public void printScreen()
@@ -1007,5 +1062,46 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable
 
         return Printable.PAGE_EXISTS;
     }
+    
+    
+    // Note thread safety is assured here by CopyOnWriteArraySet iterator which 
+    // takes a snapshot. However, listeners themselves have the potential to lock up
+    // our handler thread. A pooled executor service could be used to avoud this if it 
+    // becomes a problem.
+    protected void fireScreenListeners()
+    {
+        for (ScreenImageListener listener : listeners)
+        {
+            listener.screenUpdated(this);
+        }
+    }
+    
+    //////////////////////////////////////////////////
+    // INTERFACE METHODS - ScreenImage
+    //////////////////////////////////////////////////
+    
+    
+    public void addScreenListener(ScreenImageListener listener)
+    {
+        listeners.add(listener);
+    }
+
+    public void removeScreenListener(ScreenImageListener listener)
+    {
+        listeners.remove(listener);
+    }
+
+    @Override
+    public BufferedImage getScreenBuffer()
+    {
+        return frameBuff;
+    }
+
+    @Override
+    public int[] getScreenPixels()
+    {
+        return frameBuff.getRGB(0, 0, frameBuff.getWidth(), frameBuff.getHeight(), null, 0, frameBuff.getWidth());         
+    }
+
 
 }

@@ -22,13 +22,13 @@
  */
 package com.ascert.open.term.gui;
 
+import gnu.vnc.ScreenImage;
+
 import com.ascert.open.term.application.OpenTermConfig;
 
 import java.awt.AWTEvent;
 import java.awt.BorderLayout;
-import java.awt.Dimension;
 import java.awt.Event;
-import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.FocusEvent;
@@ -49,14 +49,15 @@ import com.ascert.open.term.core.Terminal;
 import com.ascert.open.term.core.TerminalFactoryRegistrar;
 
 /**
- * Main application frame. TODO: Implement a paintField(field) and paintChar(RW3270Char) method
+ * Main terminal emulator panel, which includes menu, F-key bar, and actual terminal screen.
+ * Created as a JPanel for ease of inclusion inside other windows and embedding within other applications.
  */
-//TODO - need a headless version i.e. one where no JFrame/Swing needed.
-public class ApplicationFrame extends JFrame
+//TODO - revisit all the pack and validate calls to see if really needed.
+public class EmulatorPanel extends JPanel
     implements ActionListener, FocusListener
 {
 
-    private static final Logger log = Logger.getLogger(ApplicationFrame.class.getName());
+    private static final Logger log = Logger.getLogger(EmulatorPanel.class.getName());
 
     /**
      * These font sizes will be presented to the user.
@@ -71,6 +72,7 @@ public class ApplicationFrame extends JFrame
         "Black", "White", "Green", "Red", "Blue", "Orange", "Turquoise", "Dark Blue", "Light Green"
     };
     
+    private JFrame parentFrame;
     private JMenuBar menubar;
     private JMenu connect;
     private JToolBar toolbar;
@@ -89,24 +91,25 @@ public class ApplicationFrame extends JFrame
     /**
      * No-ops constructor. Asks users to enter the connection settings in the corresponding dialog box then proceeds as normal.
      */
-    public ApplicationFrame()
+    public EmulatorPanel()
     {
         this(new ArrayList<Host> (), null);
     }
 
-    public ApplicationFrame(List<Host> available, JFrame parent)
+    public EmulatorPanel(List<Host> available, JFrame parent)
     {
         super();
         this.available = available;
-        init(parent);
+        this.parentFrame = parentFrame;
+        init();
     }
 
     // quick hack to allow a sort of "slave" mode that can be fed with data from outside
-    public ApplicationFrame(Terminal term, boolean noConnection)
+    public EmulatorPanel(Terminal term, boolean noConnection)
     {
         this.term = term;
         this.autoConnect = !noConnection;
-        init(null);
+        init();
     }
 
     // enabling embedded use ensures we don't try and exit the VM on window close
@@ -155,7 +158,6 @@ public class ApplicationFrame extends JFrame
 
     public void exit(boolean exitVm)
     {
-        dispose();
         if (exitVm)
         {
             //If a disconnected option is needed in embedded cases, it can be done manually
@@ -191,8 +193,19 @@ public class ApplicationFrame extends JFrame
      */
     private void buildMainMenu()
     {
+        JPanel pnlTools = new JPanel();
+        pnlTools.setLayout(new BorderLayout());
+        add("North", pnlTools);
+        
         menubar = new JMenuBar();
-        setJMenuBar(menubar);
+        //setJMenuBar(menubar);
+        pnlTools.add("North", menubar);
+        
+        toolbar = new JToolBar();
+        toolbar.setFloatable(false);
+        toolbar.setVisible("true".equals(OpenTermConfig.getProp("toolbar.fkey.enabled")));
+        pnlTools.add("Center", toolbar);
+        
         /* Make sure that the menu does not trap F10, since we use it as PF10 */
         //TODO - probably want to do this also for Alt-F4 which acts as exit?
         InputMap inputMap = menubar.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
@@ -217,7 +230,7 @@ public class ApplicationFrame extends JFrame
         {
             public void actionPerformed(ActionEvent evt)
             {
-                ApplicationFrame.this.exit();
+                exit();
             }
         });
         menubar.add(file);
@@ -264,7 +277,7 @@ public class ApplicationFrame extends JFrame
                 public void actionPerformed(ActionEvent evt)
                 {
                     String name = evt.getActionCommand();
-                    ApplicationFrame.this.rhp.setForegroundColor(name);
+                    rhp.setForegroundColor(name);
                 }
             });
         fontcolor.add(dfFontColor);
@@ -274,7 +287,7 @@ public class ApplicationFrame extends JFrame
                 public void actionPerformed(ActionEvent evt)
                 {
                     String name = evt.getActionCommand();
-                    ApplicationFrame.this.rhp.setBoldColor(name);
+                    rhp.setBoldColor(name);
                 }
             });
         fontcolor.add(bldFontColor);
@@ -286,7 +299,7 @@ public class ApplicationFrame extends JFrame
                 public void actionPerformed(ActionEvent evt)
                 {
                     String name = evt.getActionCommand();
-                    ApplicationFrame.this.rhp.setBackgroundColor(name);
+                    rhp.setBackgroundColor(name);
                 }
             });
         options.add(bgcolor);
@@ -300,7 +313,8 @@ public class ApplicationFrame extends JFrame
             public void itemStateChanged(ItemEvent e)
             {
                 OpenTermConfig.setProp("toolbar.fkey.enabled", Boolean.toString(optFkeyBar.isSelected()));
-                rhp.refresh();
+                //rhp.refresh();
+                toolbar.setVisible(optFkeyBar.isSelected());                
                 pack();
             }
         });
@@ -311,7 +325,7 @@ public class ApplicationFrame extends JFrame
             {
                 public void actionPerformed(ActionEvent evt)
                 {
-                    int n = JOptionPane.showConfirmDialog(ApplicationFrame.this,
+                    int n = JOptionPane.showConfirmDialog(null,
                                                           "Are you sure you want to clear all saved preferences?",
                                                           "Clear Preferences", JOptionPane.YES_NO_OPTION);   
                     if (n == JOptionPane.YES_OPTION)
@@ -331,7 +345,7 @@ public class ApplicationFrame extends JFrame
         {
             public void actionPerformed(ActionEvent evt)
             {
-                AboutDialog about = new AboutDialog(ApplicationFrame.this, productName);
+                AboutDialog about = new AboutDialog(null, productName);
                 about.setVisible(true);
             }
         });
@@ -349,7 +363,7 @@ public class ApplicationFrame extends JFrame
                 log.warning(ex.getLocalizedMessage());
             }
         }
-        rhp = new JTerminalScreen(term != null ? term : new Term3270());
+        rhp = new JTerminalScreen(term != null ? term : new Term3270(), toolbar);
 
         if (!this.interactionAllowed)
         {
@@ -418,7 +432,7 @@ public class ApplicationFrame extends JFrame
     {
         log.fine("** host " + host);
         available.add(new Host(host, port, type, encryption));
-        init(null);
+        init();
     }
 
     /**
@@ -427,38 +441,18 @@ public class ApplicationFrame extends JFrame
      * @param host      DOCUMENT ME!
      * @param port      DOCUMENT ME!
      * @param available DOCUMENT ME!
-     * @param parent    DOCUMENT ME!
+     * @param parentFrame    DOCUMENT ME!
      */
-    private void init(JFrame parent)
+    private void init()
     {
         productName = OpenTermConfig.getProp("product.name", "open.term");
         setTitle(productName);
-        setResizable(false);
         setLayout(new BorderLayout());
 
         buildMainMenu();
         validate();
         repaint();
         pack();
-
-        // Center on screen
-        Dimension screen_size;
-        Dimension frame_size;
-        screen_size = Toolkit.getDefaultToolkit().getScreenSize();
-        frame_size = this.getSize();
-
-        int offX = frame_size.width;
-        int offY = frame_size.height;
-
-        // If we have parent component, offset the new window from it (cascade windows)
-        if (parent != null)
-        {
-            setLocation(parent.getLocation().x + 20, parent.getLocation().y + 20);
-        }
-        else
-        {
-            setLocation((screen_size.width - offX) / 2, (screen_size.height - offY) / 2);
-        }
 
         // Connect to the first host in the set of available hosts in
         // case if there is only one host available
@@ -491,11 +485,11 @@ public class ApplicationFrame extends JFrame
             {
                 public void actionPerformed(ActionEvent evt)
                 {
-                    ApplicationFrame.this.disconnect();
+                    disconnect();
 
                     try
                     {
-                        ApplicationFrame.this.connect(hst);
+                        connect(hst);
                     }
                     catch (Exception e)
                     {
@@ -520,11 +514,11 @@ public class ApplicationFrame extends JFrame
                         @Override
                         public void run()
                         {
-                            ApplicationFrame.this.disconnect();
+                            disconnect();
 
                             try
                             {
-                                ApplicationFrame.this.connect(newHost);
+                                connect(newHost);
                             }
                             catch (Exception e)
                             {
@@ -553,7 +547,7 @@ public class ApplicationFrame extends JFrame
         {
             public void actionPerformed(ActionEvent evt)
             {
-                ApplicationFrame.this.disconnect();
+                disconnect();
             }
         });
         
@@ -563,7 +557,7 @@ public class ApplicationFrame extends JFrame
             public void actionPerformed(ActionEvent evt)
             {
                 FavouriteHostsPanel pnlHost = new FavouriteHostsPanel(available);
-                int res = JOptionPane.showConfirmDialog(ApplicationFrame.this, pnlHost, "Favourite Hosts", 
+                int res = JOptionPane.showConfirmDialog(null, pnlHost, "Favourite Hosts", 
                                                         JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
                 
                 if (res == JOptionPane.OK_OPTION)
@@ -616,5 +610,35 @@ public class ApplicationFrame extends JFrame
                                       "Connection failure", JOptionPane.WARNING_MESSAGE);
     }
 
-
+    //---------------------------------------
+    // Bit brain dead - these methods will update any parent JFrame
+    public void setTitle(String title)
+    {
+        if (parentFrame != null)
+        {
+            parentFrame.setTitle(title);
+        }
+    }
+    
+    public void pack()
+    {
+        if (parentFrame != null)
+        {
+            parentFrame.pack();
+        }
+    }
+    
+    //public void setResizable(boolean resize)
+    //{
+    //    Component parent = getParent();
+    //    if (parent != null && parent instanceof JFrame)
+    //    {
+    //        ((JFrame) parent).setResizable(false);
+    //    }
+    //}
+    
+    public JTerminalScreen getTerminalScreen()
+    {
+        return rhp;
+    }
 }

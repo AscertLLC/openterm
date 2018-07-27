@@ -32,7 +32,7 @@ import com.ascert.open.ohio.OhioOIAListener;
 import com.ascert.open.ohio.OhioPosition;
 import com.ascert.open.ohio.OhioScreen;
 import com.ascert.open.ohio.OhioScreenListener;
-import com.ascert.open.term.gui.ApplicationFrame;
+import com.ascert.open.term.gui.EmulatorPanel;
 
 /**
  * Thin set of wrapper classes providing the more significant OHIO API bindings into the terminal emulation layer. Note that Java use of
@@ -155,7 +155,7 @@ public class OhioScreenWrapper implements OhioScreen
             catch (Exception ex)
             {
                 //TODO - need to handle or re-throw this
-                Logger.getLogger(ApplicationFrame.class.getName()).log(Level.SEVERE, "attempt to sendKeys in protected field", ex);
+                Logger.getLogger(EmulatorPanel.class.getName()).log(Level.SEVERE, "attempt to sendKeys in protected field", ex);
             }
         }
     }

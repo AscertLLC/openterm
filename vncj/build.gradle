@@ -1,0 +1,9 @@
+/*-----------------------------------
+ * VNC Java server
+ *
+ * Stripped down and adapted from original GNU / vncj sources. AWT and Swing
+ * peer classes removed as no longer compatible with Java8+. 
+ */
+description = 'Basic VNC Java Server'
+version = "2.0.0"
+
