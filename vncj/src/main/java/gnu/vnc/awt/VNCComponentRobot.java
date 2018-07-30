@@ -76,6 +76,7 @@ public class VNCComponentRobot implements RFBServer, PixelsOwner, ScreenImageLis
         
         initPixels();
         
+        updateScreenShot();
         queue.takeSnapshot(this);
 
         if (this.component instanceof ScreenImage)
