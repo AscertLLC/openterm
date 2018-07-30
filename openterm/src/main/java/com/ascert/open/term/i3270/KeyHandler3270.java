@@ -97,7 +97,9 @@ public class KeyHandler3270 extends AbstractKeyHandler
 
         // Below are specific key binding alternatives from original Freehost3270 code. 
         // Presumably they map onto standard/common bindings that a 3270 emulator user would expect
-        getInputMap().put(KeyStroke.getKeyStroke("F"), "TAB");
+        //TODO - no idea why F was mapped to TAB, but it means you cannot enter an 'F' which is useless
+        //       and doesn't seem necessary since TAB works anyway
+        //getInputMap().put(KeyStroke.getKeyStroke("F"), "TAB");
         getInputMap().put(KeyStroke.getKeyStroke("control F"), "shift TAB");
         getInputMap().put(KeyStroke.getKeyStroke("control E"), "DELETE");
 
