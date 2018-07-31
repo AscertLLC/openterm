@@ -613,7 +613,7 @@ public abstract class AbstractTerminal
     //       for objects needing status
 
     /**
-     * This method implements connections directly to a host, bypassing the SessionServer.
+     * This method implements connections directly to a host.
      *
      * @param host The hostname of the TN3270 host to connect to
      * @param port The port on which to connect to the TN3270 host

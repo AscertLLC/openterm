@@ -23,6 +23,7 @@ import java.awt.event.KeyListener;
 import javax.swing.ActionMap;
 import javax.swing.InputMap;
 import javax.swing.JButton;
+import javax.swing.KeyStroke;
 
 import com.ascert.open.term.core.InputCharHandler;
 
@@ -43,6 +44,14 @@ public interface KeyHandler
     }
 
     void doKeyAction(String keyName, boolean clientRefresh, boolean observeKbdLock);
+    
+    default void doKeyAction(KeyStroke keyStroke)
+    {
+        doKeyAction(keyStroke, true, true);
+    }
+    
+    void doKeyAction(KeyStroke keyStroke, boolean clientRefresh, boolean observeKbdLock);
 
     public InputCharHandler getCharHandler();
+
 }

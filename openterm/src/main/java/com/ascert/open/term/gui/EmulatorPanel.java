@@ -22,7 +22,6 @@
  */
 package com.ascert.open.term.gui;
 
-import gnu.vnc.ScreenImage;
 
 import com.ascert.open.term.application.OpenTermConfig;
 
@@ -48,13 +47,15 @@ import com.ascert.open.term.i3270.Term3270;
 import com.ascert.open.term.core.Terminal;
 import com.ascert.open.term.core.TerminalFactoryRegistrar;
 
+import gnu.vnc.Screen;
+
 /**
  * Main terminal emulator panel, which includes menu, F-key bar, and actual terminal screen.
  * Created as a JPanel for ease of inclusion inside other windows and embedding within other applications.
  */
 //TODO - revisit all the pack and validate calls to see if really needed.
 public class EmulatorPanel extends JPanel
-    implements ActionListener, FocusListener
+    implements ActionListener//, FocusListener
 {
 
     private static final Logger log = Logger.getLogger(EmulatorPanel.class.getName());
@@ -169,14 +170,14 @@ public class EmulatorPanel extends JPanel
         }
     }
 
-    public void focusGained(FocusEvent evt)
-    {
-        rhp.requestFocus();
-    }
-
-    public void focusLost(FocusEvent evt)
-    {
-    }
+//    public void focusGained(FocusEvent evt)
+//    {
+//        //rhp.requestFocus();
+//    }
+//
+//    public void focusLost(FocusEvent evt)
+//    {
+//    }
 
     public void processEvent(AWTEvent evt)
     {
@@ -363,8 +364,9 @@ public class EmulatorPanel extends JPanel
                 log.warning(ex.getLocalizedMessage());
             }
         }
+        
         rhp = new JTerminalScreen(term != null ? term : new Term3270(), toolbar);
-
+        
         if (!this.interactionAllowed)
         {
             // Just in case RHP was null when interactions originally disabled
@@ -465,7 +467,7 @@ public class EmulatorPanel extends JPanel
             setTitle(productName + " - Not Connected");
         }
 
-        addFocusListener(this);
+        //addFocusListener(this);
     }
 
     protected void initHostsMenu()

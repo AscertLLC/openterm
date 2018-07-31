@@ -23,10 +23,12 @@
  */
 package com.ascert.open.term.gui;
 
-import gnu.vnc.ScreenImage;
 
 import java.awt.*;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
 import java.awt.font.FontRenderContext;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
@@ -45,6 +47,7 @@ import javax.swing.InputMap;
 import javax.swing.JButton;
 import javax.swing.JPanel;
 import javax.swing.JToolBar;
+import javax.swing.KeyStroke;
 import javax.swing.event.MouseInputAdapter;
 
 import com.ascert.open.term.application.OpenTermConfig;
@@ -55,6 +58,7 @@ import com.ascert.open.term.core.Terminal;
 import com.ascert.open.term.core.TnAction;
 
 import gnu.vnc.ScreenImageListener;
+import gnu.vnc.Screen;
 
 /**
  * A SWING component that interactively renders terminal screen contents and handles user to terminal interaction.
@@ -69,7 +73,7 @@ import gnu.vnc.ScreenImageListener;
  * @see #setFont(Font)
  * @since 0.1 RHPanel
  */
-public class JTerminalScreen extends JPanel implements TnAction, Printable, ScreenImage
+public class JTerminalScreen extends JPanel implements TnAction, Printable, Screen, MouseListener, MouseMotionListener
 {
     private static final Logger log = Logger.getLogger(JTerminalScreen.class.getName());
 
@@ -293,40 +297,16 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
         if (firstInit)
         {
             firstInit = false;
-            //addKeyListener(this);
-
-            MouseInputAdapter mouseAdapter = (new MouseInputAdapter()
-            {
-                public void mouseClicked(MouseEvent e)
-                {
-                    JTerminalScreen.this.mouseClicked(e);
-                }
-
-                public void mousePressed(MouseEvent e)
-                {
-                    JTerminalScreen.this.mousePressed(e);
-                }
-
-                public void mouseReleased(MouseEvent e)
-                {
-                    JTerminalScreen.this.mouseReleased(e);
-                }
-
-                public void mouseDragged(MouseEvent e)
-                {
-                    JTerminalScreen.this.mouseDragged(e);
-                }
-            });
-            addMouseListener(mouseAdapter);
-            addMouseMotionListener(mouseAdapter);
+            
+            addMouseListener(this);
+            addMouseMotionListener(this);
 
             // originally, JPanel does not receive focus
             setFocusable(true);
-
             // to catch VK_TAB et al.
             setFocusTraversalKeysEnabled(false);
-            setVisible(true);
-            requestFocus();
+            //setVisible(true);
+            //requestFocus();
         }
     }
 
@@ -334,6 +314,7 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
     {
         //TODO - option to silence
         Toolkit.getDefaultToolkit().beep();
+        // TODO - vnc beep if kbd locked?
     }
 
     public void broadcastMessage(String msg)
@@ -366,97 +347,6 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
             renderScreen();
             repaint();
         }
-    }
-
-    /**
-     * Dispatches mouse event. In case if <code>BUTTON1</code> is clicked, moves terminal cursor to the character, on which the mouse event
-     * occured.
-     *
-     * @param e DOCUMENT ME!
-     */
-    public void mouseClicked(MouseEvent e)
-    {
-
-        if (clearStatus() || term.getDisplayPage().isLocalEditMode())
-        {
-            return;
-        }
-
-        if (e.getButton() == MouseEvent.BUTTON1)
-        {
-            log.finer("mouse clicked at: (" + e.getX() + ", " + e.getY() + ")");
-
-            double dx = e.getX() - MARGIN_LEFT;
-            double dy = e.getY() - MARGIN_TOP;
-
-            if ((dx >= 0) && (dy >= 0))
-            {
-                int newpos = (((int) Math.floor(dx / char_width)) + //TODO - check this use of literal 80
-                              ((int) Math.floor(dy / char_height) * 80)) - 1;
-
-                if (newpos >= 0 && newpos < (term.getCols() * term.getRows()))
-                {
-                    term.setCursorPosition((short) (newpos), true);
-                }
-            }
-        }
-
-        requestFocus();
-    }
-
-    public void mousePressed(MouseEvent e)
-    {
-        /* Save the initial point for the rectangle */
-        rectStartPoint.x = e.getX();
-        rectStartPoint.y = e.getY();
-
-    }
-
-    public void mouseReleased(MouseEvent e)
-    {
-        refresh();
-    }
-
-    public void mouseDragged(MouseEvent e)
-    {
-        Rectangle rect = null;
-
-        int eventY = e.getY();
-        int eventX = e.getX();
-        //TODO - ??
-        renderScreen();
-
-        frame.setColor(Color.WHITE);
-
-        /* Quadrant IV */
-        if ((rectStartPoint.x < eventX) && (rectStartPoint.y < eventY))
-        {
-            rect = new Rectangle(rectStartPoint.x, rectStartPoint.y,
-                                 eventX - rectStartPoint.x, eventY - rectStartPoint.y);
-        }
-        /* Quadrant I */
-        else if (rectStartPoint.x < eventX)
-        {
-            rect = new Rectangle(rectStartPoint.x, eventY,
-                                 eventX - rectStartPoint.x, rectStartPoint.y - eventY);
-
-        }
-        else if (rectStartPoint.y < eventY)
-        {
-            /* Quadrant III */
-            rect = new Rectangle(eventX, rectStartPoint.y,
-                                 rectStartPoint.x - eventX, eventY - rectStartPoint.y);
-
-        }
-        else
-        {
-            /* Quadrant II */
-            rect = new Rectangle(eventX, eventY,
-                                 rectStartPoint.x - eventX, rectStartPoint.y - eventY);
-
-        }
-        frame.draw(rect);
-        repaint();
     }
 
     public void paintCursor(int pos)
@@ -1077,9 +967,12 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
     }
     
     //////////////////////////////////////////////////
-    // INTERFACE METHODS - ScreenImage
+    // INTERFACE METHODS - Screen
     //////////////////////////////////////////////////
     
+    // The Screen idea is based around the concept of remote/external viewers
+    // such as the experimental VNC/RFB code. Supporting such tools means providing ways
+    // to scrap screen images, and send in keyboard and mouse events
     
     public void addScreenListener(ScreenImageListener listener)
     {
@@ -1102,6 +995,131 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
     {
         return frameBuff.getRGB(0, 0, frameBuff.getWidth(), frameBuff.getHeight(), null, 0, frameBuff.getWidth());         
     }
+    
+    public void processScreenKey(KeyEvent evt)
+    {
+        if (this.kbdEnabled)
+        {
+            switch (evt.getID())
+            {
+                case KeyEvent.KEY_TYPED:
+                        kHandler.getKeyListener().keyTyped(evt);
+                        break;
+
+                case KeyEvent.KEY_PRESSED:
+                    kHandler.doKeyAction(KeyStroke.getKeyStroke(evt.getKeyCode(),evt.getModifiers()));
+            }
+        }
+        //TODO - beep??
+        
+    }
+    
+    public boolean isScreenInputEnabled()
+    {
+        return this.kbdEnabled;
+    }
+    
+    //////////////////////////////////////////////////
+    // INTERFACE METHODS - MouseListener, MouseMotionListener
+    //////////////////////////////////////////////////
+
+    /**
+     * Dispatches mouse event. In case if <code>BUTTON1</code> is clicked, moves terminal cursor to the character, on which the mouse event
+     * occured.
+     *
+     * @param e DOCUMENT ME!
+     */
+    public void mouseClicked(MouseEvent e)
+    {
+
+        if (clearStatus() || term.getDisplayPage().isLocalEditMode())
+        {
+            return;
+        }
+
+        if (e.getButton() == MouseEvent.BUTTON1)
+        {
+            log.finer("mouse clicked at: (" + e.getX() + ", " + e.getY() + ")");
+
+            double dx = e.getX() - MARGIN_LEFT;
+            double dy = e.getY() - MARGIN_TOP;
+
+            if ((dx >= 0) && (dy >= 0))
+            {
+                int newpos = (((int) Math.floor(dx / char_width)) + //TODO - check this use of literal 80
+                              ((int) Math.floor(dy / char_height) * 80)) - 1;
+
+                if (newpos >= 0 && newpos < (term.getCols() * term.getRows()))
+                {
+                    term.setCursorPosition((short) (newpos), true);
+                }
+            }
+        }
+
+        //requestFocus();
+    }
+
+    public void mousePressed(MouseEvent e)
+    {
+        /* Save the initial point for the rectangle */
+        rectStartPoint.x = e.getX();
+        rectStartPoint.y = e.getY();
+
+    }
+
+    public void mouseReleased(MouseEvent e)
+    {
+        refresh();
+    }
+
+    public void mouseDragged(MouseEvent e)
+    {
+        Rectangle rect = null;
+
+        int eventY = e.getY();
+        int eventX = e.getX();
+        //TODO - ??
+        renderScreen();
+
+        frame.setColor(Color.WHITE);
+
+        /* Quadrant IV */
+        if ((rectStartPoint.x < eventX) && (rectStartPoint.y < eventY))
+        {
+            rect = new Rectangle(rectStartPoint.x, rectStartPoint.y,
+                                 eventX - rectStartPoint.x, eventY - rectStartPoint.y);
+        }
+        /* Quadrant I */
+        else if (rectStartPoint.x < eventX)
+        {
+            rect = new Rectangle(rectStartPoint.x, eventY,
+                                 eventX - rectStartPoint.x, rectStartPoint.y - eventY);
+
+        }
+        else if (rectStartPoint.y < eventY)
+        {
+            /* Quadrant III */
+            rect = new Rectangle(eventX, rectStartPoint.y,
+                                 rectStartPoint.x - eventX, eventY - rectStartPoint.y);
+
+        }
+        else
+        {
+            /* Quadrant II */
+            rect = new Rectangle(eventX, eventY,
+                                 rectStartPoint.x - eventX, rectStartPoint.y - eventY);
+
+        }
+        frame.draw(rect);
+        repaint();
+    }
+    
+    @Override
+    public void mouseEntered(MouseEvent e) {}
+    @Override
+    public void mouseExited(MouseEvent e) {}
+    @Override
+    public void mouseMoved(MouseEvent e) {}
 
 
 }

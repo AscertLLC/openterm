@@ -31,47 +31,30 @@ import gnu.logging.*;
 
 
 public class RFBHost implements Runnable {
-    //
-    // Construction
-    //
+    
     ///////////////////////////////////////////////////////////////////////////////////////
     // Private
     
-    private int display;
-    private String displayName;
-    private RFBAuthenticator authenticator;
-    private Constructor constructor;
-    private RFBServer sharedServer = null;
+    //private RFBServer sharedServer = null;
     private boolean isRunning;
     private boolean threadFinished;
     private ServerSocket serverSocket;
-    private ArrayList servers = new ArrayList();
+    private ArrayList<RFBSocket> clientSockets = new ArrayList();
+    private RFBServerFactory factory;
     
-    public RFBHost( int display, String displayName, Class rfbServerClass, RFBAuthenticator authenticator ) throws NoSuchMethodException {
-        // Get constructor
-        constructor = rfbServerClass.getDeclaredConstructor( new Class[] { int.class, String.class } );
-        
-        // Are we assignable to RFBServer
-        if( !RFBServer.class.isAssignableFrom( rfbServerClass ) )
-            throw new NoSuchMethodException( "Class does not support RFBServer interface" );
-        
-        this.display = display;
-        this.displayName = displayName;
-        this.authenticator = authenticator;   
-        
+    //
+    // Construction
+    //
+    
+    public RFBHost( int display, String displayName, Class rfbServerClass, RFBAuthenticator authenticator ) throws NoSuchMethodException 
+    {
+        this(new ShareableServerFactory(display, displayName, rfbServerClass, authenticator));
+    }
+    
+    public RFBHost(RFBServerFactory factory )
+    {
+        this.factory = factory;
         new Thread( this ).start();        
-    }
-    
-    //
-    // Operations
-    //
-    
-    public synchronized void setSharedServer( RFBServer sharedServer ) {
-        this.sharedServer = sharedServer;
-    }
-    
-    public synchronized RFBServer getSharedServer() {
-        return sharedServer;
     }
     
     //
@@ -82,11 +65,11 @@ public class RFBHost implements Runnable {
         isRunning=true;
         threadFinished=false;
         try {
-            serverSocket = new ServerSocket( 5900 + display );
-            setSharedServer((RFBServer) constructor.newInstance( new Object[] { new Integer( display ), displayName } ));
+            serverSocket = new ServerSocket( 5900 + factory.getDisplay() );
+            //setSharedServer(factory.getInstance(false));
         }
         catch(Exception e) {
-            VLogger.getLogger().log("Got an exception, shutting down server VNCServer for: " + displayName,e); 
+            VLogger.getLogger().log("Got an exception, shutting down server VNCServer for: " + factory.getDisplayName(),e); 
             close();
         }
         
@@ -94,9 +77,9 @@ public class RFBHost implements Runnable {
             // Create client for each connected socket
             RFBSocket r;
 			try {
-				r = new RFBSocket( serverSocket.accept(), getSharedServer(), this, authenticator );
-                servers.add(r);
-			} catch (IOException e) {
+				r = new RFBSocket( serverSocket.accept(), factory.getInstance(true), this, factory.getAuthenticator() );
+                clientSockets.add(r);
+			} catch (Exception e) {
 				if (!isRunning()) {
 					System.out.println("Server Stopped.");
 					return;
@@ -109,6 +92,7 @@ public class RFBHost implements Runnable {
         threadFinished=true;
         System.out.println("Thread Finished");
     }
+    
     public void close(){
         try{
             serverSocket.close();
@@ -123,24 +107,25 @@ public class RFBHost implements Runnable {
                 }
             }
             
-            // now go through all of there servers that were spawned
-            Iterator iter = servers.iterator();
+            // now go through all of there clientSockets that were spawned
+            Iterator iter = clientSockets.iterator();
             while(iter.hasNext()){
                 ((RFBSocket)iter.next()).close();
             }
         }
         catch(IOException e){
-            VLogger.getLogger().log("Got an exception while shutting down server VNCServer for: " + displayName,e); 
+            VLogger.getLogger().log("Got an exception while shutting down server VNCServer for: " + factory.getDisplayName(),e); 
         }
         finally{
             serverSocket=null;
         }        
     }
+    
     public synchronized void stop()
     {
     	this.isRunning = false;
-        // now go through all of there servers that were spawned
-        Iterator iter = servers.iterator();
+        // now go through all of there clientSockets that were spawned
+        Iterator iter = clientSockets.iterator();
         while(iter.hasNext()){
             ((RFBSocket)iter.next()).close();
         }
@@ -157,10 +142,76 @@ public class RFBHost implements Runnable {
         System.out.println("end of the work");
         Thread.currentThread().interrupt();
     }
+    
     public String getDisplayName(){
-        return(displayName);
+        return(factory.getDisplayName());
     }
+    
     private synchronized boolean isRunning() {
         return this.isRunning;
     }
+    
+    
+    public static class ShareableServerFactory implements RFBServerFactory
+    {
+        protected int display;
+        protected String displayName;
+        
+        private Constructor constructor;
+        private RFBServer shareableInstance;
+        protected RFBAuthenticator authenticator;
+        
+        public ShareableServerFactory( int display, String displayName, Class rfbServerClass, RFBAuthenticator authenticator ) throws NoSuchMethodException 
+        {
+            this.display = display;
+            this.displayName = displayName;
+            // Get constructor
+            constructor = rfbServerClass.getDeclaredConstructor( new Class[] { int.class, String.class } );
+
+            // Are we assignable to RFBServer
+            if( !RFBServer.class.isAssignableFrom( rfbServerClass ) )
+                throw new NoSuchMethodException( "Class does not support RFBServer interface" );
+        }
+        
+        public synchronized RFBServer getInstance(boolean newClientConnection) throws InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException
+        {
+            if (shareableInstance == null)
+            {
+                shareableInstance = (RFBServer) constructor.newInstance( new Object[] { display , displayName } );
+            }
+            
+            return shareableInstance;
+        }
+
+        public boolean isShareable()
+        {
+            return true;
+        }
+
+        /**
+         * @return the display
+         */
+        public int getDisplay()
+        {
+            return display;
+        }
+
+        /**
+         * @return the displayName
+         */
+        public String getDisplayName()
+        {
+            return displayName;
+        }
+
+        /**
+         * @return the authenticator
+         */
+        public RFBAuthenticator getAuthenticator()
+        {
+            return authenticator;
+        }
+        
+    }
+    
 }

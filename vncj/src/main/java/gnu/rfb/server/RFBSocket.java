@@ -25,10 +25,10 @@ package gnu.rfb.server;
 
 import gnu.rfb.*;
 import gnu.logging.*;
+
 import java.net.*;
 import java.io.*;
 import java.util.*;
-import java.lang.reflect.*;
 
 public class RFBSocket implements RFBClient, Runnable {
     //
@@ -63,38 +63,15 @@ public class RFBSocket implements RFBClient, Runnable {
         this.socket = socket;
         this.server = server;
         this.host = host;
+        
         this.authenticator = authenticator;
         // Streams
         input = new DataInputStream( new BufferedInputStream( socket.getInputStream() ) );
         output = new DataOutputStream( new BufferedOutputStream( socket.getOutputStream(), 16384 ) );
 
-        // Start socket listener thread
+        // Start socket listener thread        
         new Thread( this ).start();
     }
-
-    /**
-     * new constructor by Marcus Wolschon
-     */
-    public RFBSocket( Socket socket, RFBServer server, RFBHost host, RFBAuthenticator authenticator, boolean syncronous ) throws IOException {
-        this.socket = socket;
-        this.server = server;
-        this.host = host;
-        this.authenticator = authenticator;
-
-        // Streams
-        input = new DataInputStream( new BufferedInputStream( socket.getInputStream() ) );
-        output = new DataOutputStream( new BufferedOutputStream( socket.getOutputStream(), 16384 ) );
-
-        // Start socket listener thread
-        if(syncronous) {
-            run();
-        }
-        else {
-            new Thread( this ).start();
-        }
-    }
-
-
 
     //
     // RFBClient
@@ -296,15 +273,24 @@ public class RFBSocket implements RFBClient, Runnable {
         close();
     }
 
-
+    //TODO - the concept of 'shared' needs some work here. Original GNU abstraction and code
+    //       was not really that helpful or correct
     private void initServer() throws IOException {
         // We may already have a shared server
-        if( shared ){
-            server = host.getSharedServer();
+        //TODO - check server allows sharing
+        if( shared )
+        {
+            //TODO - not sure this does anything, if it was a shareable server this would be same value as initially
+            //       supplied anyway
+            //server = host.getSharedServer();
         }
+        else
+        {
+            //TODO - according to spec, we should disconnect other clients here
+        }
+        
         server.addClient( this );
         server.setClientProtocolVersionMsg( this, protocolVersionMsg );
-        server.setShared( this, shared );
     }
 
     // Handshaking
@@ -322,6 +308,9 @@ public class RFBSocket implements RFBClient, Runnable {
 
     private synchronized void readClientInit() throws IOException {
         shared = input.readUnsignedByte() == 1;
+        VLogger.getLogger().log("Client option - shared: " + shared);
+
+        
     }
 
     private synchronized void writeServerInit() throws IOException {

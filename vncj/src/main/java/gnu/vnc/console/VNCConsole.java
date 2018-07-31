@@ -105,7 +105,7 @@ public abstract class VNCConsole implements RFBServer, Runnable
 		return PixelFormat.BGR233;
 	}
 	
-	public boolean allowShared()
+	public boolean isSharingAllowed()
 	{
 		return true;
 	}

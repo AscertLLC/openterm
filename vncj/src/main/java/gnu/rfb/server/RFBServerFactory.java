@@ -14,30 +14,42 @@
  * DISTRIBUTING THIS SOFTWARE OR ITS DERIVATIVES.
  *
  */
-package gnu.vnc;
+package gnu.rfb.server;
 
-import java.awt.image.BufferedImage;
+import java.lang.reflect.InvocationTargetException;
 
 /**
  *
- * @version 1,0 27-Jul-2018
+ * @version 1,0 31-Jul-2018
  * @author srm
  * @history
- *      27-Jul-2018    srm        Created
+ *      31-Jul-2018    srm        Created
  */
-public interface ScreenImage
+public interface RFBServerFactory
 {
-
     //////////////////////////////////////////////////
     // INTERFACE METHODS
     //////////////////////////////////////////////////
 
-    public void addScreenListener(ScreenImageListener listener);
+    RFBServer getInstance(boolean newClientConnection) throws InstantiationException, IllegalAccessException, IllegalArgumentException,
+                                                              InvocationTargetException;
 
-    public void removeScreenListener(ScreenImageListener listener);
+    boolean isShareable();
 
-    public BufferedImage getScreenBuffer();
-    
-    public int[] getScreenPixels();
-        
+    /**
+     * @return the display
+     */
+    int getDisplay();
+
+    /**
+     * @return the displayName
+     */
+    String getDisplayName();
+
+    /**
+     * @return the authenticator
+     */
+    RFBAuthenticator getAuthenticator();
+
+
 }

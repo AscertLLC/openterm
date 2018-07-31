@@ -22,56 +22,34 @@ package gnu.vnc.awt;
 * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 * <hr></table></center>
 **/
-
+ 
 import gnu.rfb.*;
 import gnu.rfb.server.*;
 
 import java.io.*;
 import java.awt.*;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
 import java.awt.image.*;
-import java.awt.event.*;
-import java.lang.reflect.InvocationTargetException;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Enumeration;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import javax.swing.JComponent;
-import javax.swing.KeyStroke;
-import javax.swing.RepaintManager;
-import javax.swing.SwingUtilities;
 
 import gnu.awt.PixelsOwner;
 import gnu.logging.VLogger;
-import gnu.vnc.ScreenImage;
 import gnu.vnc.VNCQueue;
 import gnu.vnc.ScreenImageListener;
+import gnu.vnc.Screen;
 
-public class VNCComponentRobot implements RFBServer, PixelsOwner, ScreenImageListener
+public class VNCScreenRobot implements RFBServer, PixelsOwner, ScreenImageListener
 {
-    //TODO - junk for quick test
-    private static List<Component> componentList = new ArrayList<>();
     
-    public static void add(Component comp)
-    {
-        componentList.add(comp);
-    }
-    
-	//
-	// Construction
-	//
-    
-	public VNCComponentRobot(int display, String displayName )
+	public VNCScreenRobot(Screen screen, String displayName)
 	{
-        this.display = display;
 		this.displayName = displayName;
-        this.component = componentList.get(display);
+        this.screen = screen;
         
-		events = new VNCEvents( component, clients );
+		events = new VNCScreenEvents( screen, clients );
 		queue = new VNCQueue( clients );
         
         initPixels();
@@ -79,10 +57,7 @@ public class VNCComponentRobot implements RFBServer, PixelsOwner, ScreenImageLis
         updateScreenShot();
         queue.takeSnapshot(this);
 
-        if (this.component instanceof ScreenImage)
-        {
-            ((ScreenImage) component).addScreenListener(this);
-        }
+        screen.addScreenListener(this);
 	}
 	
 	//
@@ -91,6 +66,8 @@ public class VNCComponentRobot implements RFBServer, PixelsOwner, ScreenImageLis
 
 	// Clients
 	
+    //TODO - seems like we should really throw some kind of NotShareable exception if multiple clients are not allowed to 
+    //       share this server
 	public void addClient( RFBClient client )
 	{
         System.out.println("*** add client: " + client);
@@ -99,6 +76,7 @@ public class VNCComponentRobot implements RFBServer, PixelsOwner, ScreenImageLis
 	
 	public void removeClient( RFBClient client )
 	{
+        //TODO - handle client disconnection
         System.out.println("*** remove client: " + client);
 		clients.removeClient( client );
 	}
@@ -126,8 +104,11 @@ public class VNCComponentRobot implements RFBServer, PixelsOwner, ScreenImageLis
 		return PixelFormat.RGB888;
 	}
 	
-	public boolean allowShared()
+	public boolean isSharingAllowed()
 	{
+        // Although we allow sharing, in some configurations there may not be a physical way to achieve it
+        // e.g. a ServerFactory creates a new server instance for each incoming client socket. In these cases
+        // there would need to be some other channel that allowed a viewer/client to connect to an existing instance
 		return true;
 	}
 	
@@ -166,21 +147,17 @@ public class VNCComponentRobot implements RFBServer, PixelsOwner, ScreenImageLis
     
 	public void keyEvent( RFBClient client, boolean down, int key )
 	{
-		events.translateKeyEvent( client, down, key );
-        if (!(component instanceof ScreenImage))
+        if (screen.isScreenInputEnabled())
         {
-            // No listener for changes, best we can do is update on interactionm
-            updateAll();
+            events.translateKeyEvent( client, down, key );
         }
 	}
     
 	public void pointerEvent( RFBClient client, int buttonMask, int x, int y )
 	{
-		events.translatePointerEvent( client, buttonMask, x, y );
-        if (!(component instanceof ScreenImage))
+        if (screen.isScreenInputEnabled())
         {
-            // No listener for changes, best we can do is update on interactionm
-            updateAll();
+            events.translatePointerEvent( client, buttonMask, x, y );
         }
 	}
 		
@@ -192,14 +169,12 @@ public class VNCComponentRobot implements RFBServer, PixelsOwner, ScreenImageLis
 	// Private
 
 	private RFBClients clients = new RFBClients();
-	private VNCEvents events;
+	private VNCScreenEvents events;
 	protected VNCQueue queue;
 
-    private int display;
 	private String displayName;
 	private int mouseModifiers = 0;
-    private Component component;
-    //private BufferedImage imgCurrent;
+    private Screen screen;
     private BufferedImage imgBuffer;
 
     // We're not really using the 'pool' aspect, just the deferred execution part
@@ -209,7 +184,7 @@ public class VNCComponentRobot implements RFBServer, PixelsOwner, ScreenImageLis
 	{
         System.out.println("*** updateAll");
         
-        // skip if more than 2 updates in queue i.e. 1 in process and 1 waiting. Just checking for 1 could miss an update which is 
+        // skip if more than 2 events to process in queue i.e. 1 in process and 1 waiting. Just checking for 1 could miss an update which is 
         // nearly complete
         if (updateHandler.getQueue().size() > 2 )    { return; }
         
@@ -227,37 +202,12 @@ public class VNCComponentRobot implements RFBServer, PixelsOwner, ScreenImageLis
 	}
     
     
-    private int[] updateImage(ScreenImage img)
+    private int[] updateImage()
     {
-        return img.getScreenPixels();
+        return screen.getScreenPixels();
     }
 
-    private int[] updateImage(final Component comp)
-    {
-        try
-        {
-            SwingUtilities.invokeAndWait(new Runnable()
-            {
-                @Override
-                public void run()
-                {
-                    comp.paint(imgBuffer.getGraphics());
-                }
-            });
-        }
-        catch (InterruptedException ex)
-        {
-            Logger.getLogger(VNCComponentRobot.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        catch (InvocationTargetException ex)
-        {
-            Logger.getLogger(VNCComponentRobot.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        
-		return imgBuffer.getRGB(0, 0, getPixelWidth(), getPixelHeight(), null, 0, getPixelWidth());
-    }
     
-    // Messy, but seem to need sync to prevent overlapping changes
     private boolean updateScreenShot()
     {
         boolean changed = false;
@@ -267,14 +217,7 @@ public class VNCComponentRobot implements RFBServer, PixelsOwner, ScreenImageLis
         // Messy, but change detection needs it
         synchronized (this)
         {
-            if (component instanceof ScreenImage)
-            {
-                newPixels = updateImage((ScreenImage) component);
-            }
-            else
-            {
-                newPixels = updateImage(component);
-            }
+            newPixels = updateImage();
 
             for (int ix = 0; ix < newPixels.length && !changed; ix++)
             {
@@ -323,12 +266,12 @@ public class VNCComponentRobot implements RFBServer, PixelsOwner, ScreenImageLis
 
 	public int getPixelWidth()
 	{
-		return component.getWidth();
+		return screen.getScreenBuffer().getWidth();
 	}
 
 	public int getPixelHeight()
 	{
-		return component.getHeight();
+		return screen.getScreenBuffer().getHeight();
 	}    
 
 
@@ -337,7 +280,7 @@ public class VNCComponentRobot implements RFBServer, PixelsOwner, ScreenImageLis
     //////////////////////////////////////////////////    
     
     @Override
-    public void screenUpdated(ScreenImage imgScrn)
+    public void screenUpdated(Screen imgScrn)
     {
         updateAll();
     }

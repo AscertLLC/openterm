@@ -202,13 +202,20 @@ public abstract class AbstractKeyHandler implements KeyHandler
 
     public void doKeyAction(String keyName, boolean clientRefresh, boolean observeKbdLock)
     {
-        KeyStroke keyStroke = KeyStroke.getKeyStroke(keyName);
-        if (keyStroke == null)
+        doKeyAction(KeyStroke.getKeyStroke(keyName), clientRefresh, observeKbdLock);
+    }
+    
+    public void doKeyAction(KeyStroke keyStroke, boolean clientRefresh, boolean observeKbdLock)
+    {
+        Object kObj = inpMap.get(keyStroke);
+        
+        if (keyStroke == null || kObj == null)
         {
             return;
         }
-
-        Action act = actMap.get(inpMap.get(keyStroke));
+        
+        Action act = actMap.get(kObj);
+        
         if (act == null)
         {
             return;
@@ -220,10 +227,10 @@ public abstract class AbstractKeyHandler implements KeyHandler
             return;
         }
 
-        // no refresh handling so just perform
-        ActionEvent actEvt = new ActionEvent(this, ActionEvent.ACTION_PERFORMED, keyName);
+        ActionEvent actEvt = new ActionEvent(this, ActionEvent.ACTION_PERFORMED, keyStroke.toString());
         act.actionPerformed(actEvt);
     }
+    
 
     /**
      * @return the charHandler

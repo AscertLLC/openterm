@@ -88,7 +88,7 @@ public class VNCRobot extends Component implements RFBServer
 		return PixelFormat.RGB888;
 	}
 	
-	public boolean allowShared()
+	public boolean isSharingAllowed()
 	{
 		return true;
 	}

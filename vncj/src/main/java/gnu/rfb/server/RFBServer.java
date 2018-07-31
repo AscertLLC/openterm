@@ -41,12 +41,11 @@ public interface RFBServer
 	public int getFrameBufferWidth( RFBClient client );
 	public int getFrameBufferHeight( RFBClient client );
 	public PixelFormat getPreferredPixelFormat( RFBClient client );
-	public boolean allowShared();
+	public boolean isSharingAllowed();
 
 	// Messages from client to server
 
 	public void setClientProtocolVersionMsg( RFBClient client, String protocolVersionMsg ) throws IOException;
-	public void setShared( RFBClient client, boolean shared ) throws IOException;
 	public void setPixelFormat( RFBClient client, PixelFormat pixelFormat ) throws IOException;
 	public void setEncodings( RFBClient client, int[] encodings ) throws IOException; // not supported
 	public void fixColourMapEntries( RFBClient client, int firstColour, Colour[] colourMap ) throws IOException;

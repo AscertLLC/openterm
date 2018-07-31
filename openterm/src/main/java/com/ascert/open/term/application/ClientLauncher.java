@@ -27,6 +27,8 @@ import java.awt.Component;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.ascert.open.term.core.Host;
@@ -40,15 +42,19 @@ import javax.swing.UIManager.LookAndFeelInfo;
 import com.ascert.open.term.core.SimpleConfig;
 import com.ascert.open.term.core.TerminalFactoryRegistrar;
 import com.ascert.open.term.gui.EmulatorFrame;
+import com.ascert.open.term.gui.EmulatorPanel;
 
 import gnu.rfb.server.DefaultRFBAuthenticator;
 import gnu.rfb.server.RFBAuthenticator;
 import gnu.rfb.server.RFBHost;
-import gnu.vnc.awt.VNCComponentRobot;
+import gnu.rfb.server.RFBServer;
+import gnu.rfb.server.RFBServerFactory;
+import gnu.vnc.awt.VNCScreenRobot;
     
 /**
- * Behaviour is a little different here to original Freehost3270. Session server feature has been bypassed (at least for now). In it's
- * place, we have a TerminalFactory model which allows support for multiple device type emulators
+ * Behaviour is a little different here to original Freehost3270. A new TerminalFactory model has been added that supports emulators for 
+ * different device types. The session server feature has been removed. In it's place is a new "VNC terminal server"
+ * concept allowing remote emulators to be supported using any standard VNC client software. 
  *
  * @see #KEY_HOSTS
  * @see #KEY_HOST
@@ -77,8 +83,6 @@ public class ClientLauncher
     {
         OpenTermConfig.initConfig(new OpenTermConfig("openterm.properties", true));
 
-        setLookAndFeel();
-
         String factories = OpenTermConfig.getProp(KEY_TERM_FACTORIES);
         String hosts = OpenTermConfig.getProp(KEY_HOSTS);
         String favouriteHosts = OpenTermConfig.getProp("favourite.hosts");
@@ -100,6 +104,7 @@ public class ClientLauncher
         
         if (serverPort == -1)  
         {
+            setLookAndFeel();
             startEmulator(availableHosts);
         }
         else
@@ -107,10 +112,10 @@ public class ClientLauncher
             //TODO - start a server daemon in here e.g. to listen for VNC connections
             //       for now just add a wait so we can see if any errors come out
             startEmulatorServer(serverPort, availableHosts);
-            
         }
     }
     
+    /** Do not call this method in headless or terminal server modes */    
     private static void setLookAndFeel()
     {
         String lafName = OpenTermConfig.getProp("laf.name");
@@ -128,7 +133,7 @@ public class ClientLauncher
         }
         catch (Exception e)
         {
-            // If Nimbus is not hosts, you can set the GUI to another look and feel.
+            // If Nimbus is not available, you can set the GUI to another look and feel.
         }
     }
     
@@ -139,26 +144,75 @@ public class ClientLauncher
         throws IOException
     {
         EmulatorFrame frmEmul8 = new EmulatorFrame(availableHosts);
-        //TODO - temp, just to show we have a visible/usable panel even if not visible
-        saveScreenShot(frmEmul8.pnlEmul8, "frmEmul8.pnlEmul8-before-visible.png");
+        //TODO - temp diag code to show we have a usable panel even if not visible
+        //saveScreenShot(frmEmul8.pnlEmul8, "frmEmul8.pnlEmul8-before-visible.png");
         frmEmul8.setVisible(true);
         log.fine("*** emulator frame size: " + frmEmul8.getBounds());
     }
     
-    //
+    //-------------------------------------------------------------------------------------------------------
     // Everything below here is experimental/prototype code for a sort of terminal server
     // which can be connected to using a standard VNC client
     //
     
-    public static class RemoteScreenServer extends VNCComponentRobot
+    public static class RemoteScreenServerFactory implements RFBServerFactory
     {
-     
-        public RemoteScreenServer(int display, String displayName )
+        // bit silly havign a single host list, but client code expects a list
+        List<Host> hosts = new ArrayList<> ();
+        private final int displayNum;
+        private int connCount;
+        private RFBAuthenticator authenticator;
+        
+        public RemoteScreenServerFactory(int displayNum, Host host)
         {
-            super(display, displayName);
+            this.displayNum = displayNum;
+            this.hosts.add(host);
+            //TODO - need to allow proper password setting, probably on a per-host basis
+            authenticator = new DefaultRFBAuthenticator("password");
+        }
+        
+        @Override
+        public RFBServer getInstance(boolean newClientConnection) throws InstantiationException, IllegalAccessException,
+                                                                         IllegalArgumentException, InvocationTargetException
+        {
+            // In theory a JPanel is a lightweight component, and hence possibly renderable headless. Also doesn't need to be 
+            // made visible or receive focus for use.
+            EmulatorPanel pnlEmul8 = new EmulatorPanel(hosts, null);
+            //EmulatorFrame frmEmul8 = new EmulatorFrame(hosts);
+            //EmulatorPanel pnlEmul8 = frmEmul8.pnlEmul8;
+            //frmEmul8.setVisible(true);
+            return new VNCScreenRobot(pnlEmul8.getTerminalScreen(), String.format("%s (%d)", getDisplayName(), connCount++));
         }
 
+        @Override
+        public boolean isShareable()
+        {
+            return false;
+        }
+
+        @Override
+        public int getDisplay()
+        {
+            return displayNum;
+        }
+
+        @Override
+        public String getDisplayName()
+        {
+            return this.hosts.get(0).getDisplayName();
+        }
+
+        @Override
+        public RFBAuthenticator getAuthenticator()
+        {
+            //TODO - need to allow proper password setting, probably on a per-host basis
+            return this.authenticator;
+        }
+     
     }
+    
+    private static List<RFBHost> rfbHosts = new ArrayList<> ();
+
     
     /**
      * Starts a simple emulator server
@@ -172,54 +226,14 @@ public class ClientLauncher
         }
 
         log.fine(String.format(" server port: %d, host count: %d", serverPort, availableHosts.size()));
-        
-        // temp for now - junk really, just to try
-        
-        EmulatorFrame frmEmul8 = new EmulatorFrame(availableHosts);
-        frmEmul8.setVisible(true);
-        
-        //TODO - sure this will move!
-        RemoteScreenServer.add(frmEmul8.pnlEmul8.getTerminalScreen());
-        
-        RFBHost rfbHost = new RFBHost(0, "host:0", RemoteScreenServer.class, new DefaultRFBAuthenticator("password") ) ;
 
+        for (int ix = 0; ix < availableHosts.size(); ix++)
+        {
+            RFBServerFactory factory = new RemoteScreenServerFactory(ix, availableHosts.get(ix));
+            //TODO - need to allow password setting, poss per host
+            rfbHosts.add(new RFBHost(factory));
+        }
         
-//            JPanel pnlEmul8 = new EmulatorPanel(availableHosts, null);
-//            
-//            // allow to connect
-//            synchronized(Thread.currentThread())
-//            {
-//                Thread.currentThread().wait(5 * 1000);
-//            }
-//            
-//            Dimension dim = new Dimension(800,800);
-//            pnlEmul8.setSize(dim);
-//            pnlEmul8.setMinimumSize(dim);
-//            pnlEmul8.setMaximumSize(dim);
-//            pnlEmul8.setPreferredSize(dim);            
-//            saveScreenShot(pnlEmul8, "pnlEmul8.png");
-//            
-//            JInternalFrame ifrm = new JInternalFrame();
-//            ifrm.setSize(dim);
-//            ifrm.setMinimumSize(dim);
-//            ifrm.setMaximumSize(dim);
-//            ifrm.setPreferredSize(dim);            
-//            ifrm.add(pnlEmul8);
-//            ifrm.pack();
-//            saveScreenShot(ifrm, "ifrm.png");
-//
-//            JDesktopPane dsk = new JDesktopPane();
-//            dsk.setSize(dim);
-//            dsk.setMinimumSize(dim);
-//            dsk.setMaximumSize(dim);
-//            dsk.setPreferredSize(dim);            
-//            dsk.add(ifrm);
-//            //dsk.setVisible(true);
-//            saveScreenShot(dsk, "dsk.png");
-//            
-//            System.out.println("*** pnlEmul8 size: " + pnlEmul8.getBounds() + ", graphics: " + pnlEmul8.getGraphics());
-//            System.out.println("*** iframe size: " + ifrm.getBounds() + ", graphics: " + ifrm.getGraphics());
-//            System.out.println("*** desktop size: " + dsk.getBounds());
     }
     
     private static void saveScreenShot(Component comp, String fileName)

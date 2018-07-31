@@ -247,8 +247,7 @@ public class RWTelnet implements Runnable
     }
 
     /**
-     * Performs a direct connection to the terminal server ommiting <code>SessionServer</code> relay. added 5/12/98 to facilitate packaging
-     * of the 3270 Servlet Developer's Toolkit
+     * Performs a direct connection to a host terminal server.
      *
      * @param host destination server host name.
      * @param port destination terminal server port number.

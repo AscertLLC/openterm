@@ -35,16 +35,16 @@ public class VNCPixels implements RFBServer, PixelsOwner
 {
 
  /**
-  * VNCEvents to forward events to
+  * VNCScreenEvents to forward events to
   */
- private gnu.vnc.awt.VNCEvents events = null;
+ private gnu.vnc.awt.VNCScreenEvents events = null;
 
- public void setVNCEventsHandler(gnu.vnc.awt.VNCEvents events)
+ public void setVNCEventsHandler(gnu.vnc.awt.VNCScreenEvents events)
  {
   this.events = events;
  }
 
- public gnu.vnc.awt.VNCEvents getVNCEventsHandler()
+ public gnu.vnc.awt.VNCScreenEvents getVNCEventsHandler()
  {
   return events;
  }
@@ -131,7 +131,7 @@ public class VNCPixels implements RFBServer, PixelsOwner
 		return PixelFormat.RGB888;
 	}
 
-	public boolean allowShared()
+	public boolean isSharingAllowed()
 	{
 		return true;
 	}

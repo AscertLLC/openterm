@@ -16,21 +16,33 @@
  */
 package gnu.vnc;
 
+import java.awt.event.KeyEvent;
+import java.awt.image.BufferedImage;
+
 /**
  *
  * @version 1,0 27-Jul-2018
- * @author rhw
+ * @author srm
  * @history
- *      27-Jul-2018    rhw        Created
+ *      27-Jul-2018    srm        Created
  */
-public interface ScreenImageListener
+public interface Screen
 {
 
     //////////////////////////////////////////////////
     // INTERFACE METHODS
     //////////////////////////////////////////////////
+
+    public void addScreenListener(ScreenImageListener listener);
+
+    public void removeScreenListener(ScreenImageListener listener);
+
+    public BufferedImage getScreenBuffer();
     
-    void screenUpdated(Screen imgScrn);
+    public int[] getScreenPixels();
+    
+    public void processScreenKey(KeyEvent evt);
 
-
+    boolean isScreenInputEnabled();
+        
 }

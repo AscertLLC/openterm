@@ -33,7 +33,7 @@ public interface TnAction
 {
 
     /**
-     * Status constant passed to <code>status()</code> indicating that there was a problem connecting to the 3270 host or SessionServer
+     * Status constant passed to <code>status()</code> indicating that there was a problem connecting to the 3270 host
      */
     public static final int CONNECTION_ERROR = -2;
 
