@@ -28,8 +28,6 @@ import gnu.rfb.server.*;
 
 import java.io.*;
 import java.awt.*;
-import java.awt.event.MouseListener;
-import java.awt.event.MouseMotionListener;
 import java.awt.image.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -76,11 +74,19 @@ public class VNCScreenRobot implements RFBServer, PixelsOwner, ScreenImageListen
 	
 	public void removeClient( RFBClient client )
 	{
-        //TODO - handle client disconnection
+        //TODO - handle client disconnection. 
+        //          - In single use/interactive emulator mode this would probably dropping a host connection
+        //            when last client is gone.
+        //          - In a ghost viewing mode, we'd probably do nothing since new ghost clients may wish to connect later
         System.out.println("*** remove client: " + client);
 		clients.removeClient( client );
 	}
 	
+    public int getClientCount()
+    {
+        return clients.size();
+    }
+    
 	// Attributes
 	
 	public String getDesktopName( RFBClient client )

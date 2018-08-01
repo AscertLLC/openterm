@@ -278,7 +278,7 @@ public class VNCQueue {
             scanline=p.getPixelWidth();
             Enumeration enumerate = clients.elements();
             while(enumerate.hasMoreElements()){
-                ((RFBClient)enumerate.nextElement()).setUpdateIsAvailable(true);
+                ((RFBClient)enumerate.nextElement()).updateAvailable();
             }
         }
     }            

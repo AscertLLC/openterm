@@ -357,7 +357,7 @@ public class EmulatorPanel extends JPanel
         {
             try
             {
-                term = TerminalFactoryRegistrar.createTerminal(OpenTermConfig.getProp("startup.type"));
+                term = TerminalFactoryRegistrar.createTerminal(OpenTermConfig.getProp("startup.type").trim());
             }
             catch (Exception ex)
             {

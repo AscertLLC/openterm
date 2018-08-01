@@ -29,12 +29,7 @@ import gnu.rfb.server.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.*;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-
-import javax.swing.AbstractButton;
-import javax.swing.SwingUtilities;
 
 import gnu.vnc.Screen;
 

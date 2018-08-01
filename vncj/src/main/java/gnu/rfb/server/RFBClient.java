@@ -44,7 +44,7 @@ public interface RFBClient
 	public void writeSetColourMapEntries( int firstColour, Colour colours[] ) throws IOException;
 	public void writeBell() throws IOException;
 	public void writeServerCutText( String text ) throws IOException;
-    public void setUpdateIsAvailable(boolean value);
+    public void updateAvailable();
 	
 	// Operations
 

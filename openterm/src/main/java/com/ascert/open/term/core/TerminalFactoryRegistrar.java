@@ -85,7 +85,7 @@ public class TerminalFactoryRegistrar
             }
         }
 
-        throw new Exception("Unable to initialise terminal, unsupported terminal type: " + termType);
+        throw new Exception(String.format("Unable to initialise terminal, unsupported terminal type: [%s]", termType));
     }
     
     public static Terminal createTerminal(Host host)

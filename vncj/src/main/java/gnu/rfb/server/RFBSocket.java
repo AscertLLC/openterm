@@ -29,17 +29,16 @@ import gnu.logging.*;
 import java.net.*;
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 public class RFBSocket implements RFBClient, Runnable {
-    //
-    // Construction
-    //
 
+    
     ///////////////////////////////////////////////////////////////////////////////////////
     // Private
 
     private Socket socket;
-    private RFBHost host;
+    //private RFBHost host;
     private RFBAuthenticator authenticator;
     private RFBServer server = null;
     private DataInputStream input;
@@ -53,16 +52,21 @@ public class RFBSocket implements RFBClient, Runnable {
     private boolean isRunning = false;
     private boolean threadFinished = false;
     private Vector updateQueue=new Vector();
-    private boolean updateAvailable = true;
+    private boolean keepAliveSupported = false;
     
-
+    private int keepAliveInterval = 20*1000;    // default 20s to check connection is alive
+    private long lastServerMsgTs = 0;
+    
+    //TODO - def need to review the number of Qs, syncs, and threads we have per client and see if they can be rationalised/optimised
+    ScheduledThreadPoolExecutor updateHandler = new ScheduledThreadPoolExecutor(1);
+    
     /**
      * new constructor by Marcus Wolschon
      */
-    public RFBSocket( Socket socket, RFBServer server, RFBHost host, RFBAuthenticator authenticator ) throws IOException {
+    public RFBSocket( Socket socket, RFBServer server, RFBAuthenticator authenticator ) throws IOException {
         this.socket = socket;
         this.server = server;
-        this.host = host;
+        //this.host = host;
         
         this.authenticator = authenticator;
         // Streams
@@ -164,6 +168,14 @@ public class RFBSocket implements RFBClient, Runnable {
         output.writeByte( 0 );
         output.flush();
     }
+    
+    // Warning - most clients don't seem to support Keep Alive messages
+    public synchronized void writeKeepAlive() throws IOException {
+        if (keepAliveSupported && (System.currentTimeMillis() - this.lastServerMsgTs) > this.keepAliveInterval)
+        {
+            writeServerMessageType( rfb.KeepAlive );
+        }
+    }
 
     // Operations
 
@@ -183,7 +195,7 @@ public class RFBSocket implements RFBClient, Runnable {
             socket.close();
         }
         catch(IOException e){
-            VLogger.getLogger().log("Got and exception shutting down RFBSocket ",e);
+            //VLogger.getLogger().log("Got and exception shutting down RFBSocket ",e);
         }
         finally{
         	output=null;
@@ -218,20 +230,8 @@ public class RFBSocket implements RFBClient, Runnable {
             writeServerInit();
             //                 System.err.println("DEBUG[RFBSocket] run() message loop");
 
-            // RFBClient message loop
+            // RFBClient read message loop
             while( isRunning ) {
-                if(getUpdateIsAvailable()){
-                    // go ahead and send the updates
-                    doFrameBufferUpdate();
-                }                    
-                if(input.available() == 0){
-                    try{
-                        Thread.currentThread().sleep(10);
-                    }
-                    catch(InterruptedException x){
-                    }
-                }
-                else{
                     switch( input.readUnsignedByte() ) {
                         case rfb.SetPixelFormat:
                             readSetPixelFormat();
@@ -255,17 +255,20 @@ public class RFBSocket implements RFBClient, Runnable {
                             readClientCutText();
                             break;
                     }
-                }
             }
         }
+        catch( EOFException eof ) {
+            // This is a normal disconnect
+            System.out.println("Client disconnected.");
+        }
         catch( IOException x ) {
-            System.out.println("Got an IOException, drop the client");
+            System.out.println("IOException on read, drop the client");
         }
         catch(Throwable t){
             t.printStackTrace();
         }
 
-        if( server != null ){
+        if( server != null ) {
             server.removeClient( this );
         }
 
@@ -340,6 +343,7 @@ public class RFBSocket implements RFBClient, Runnable {
     // Messages from server to client
 
     private synchronized void writeServerMessageType( int type ) throws IOException {
+        this.lastServerMsgTs = System.currentTimeMillis();
         output.writeByte( type );
     }
 
@@ -401,31 +405,30 @@ public class RFBSocket implements RFBClient, Runnable {
             }
         }
     }
-    private synchronized void doFrameBufferUpdate() throws IOException{
-        Iterator iter = updateQueue.iterator();
-        while(iter.hasNext()){
-            UpdateRequest ur = (UpdateRequest)iter.next();
-            iter.remove();
-            // Delegate to server
-            try {
-                System.out.println("RFBSocket is doing an update");
-                server.frameBufferUpdateRequest( this, ur.incremental, ur.x, ur.y, ur.w, ur.h );
-                System.out.println("RFBSocket is done");
-            }
-            catch(IOException e)  // some times we have w==h==0 and it would result in a blue screen on the official VNC client.
-            {
-                System.out.println(" !!!! RFBSocket exception: " + e);
-                // if there is nothing to encode, encode the top left pixel instead
-                if(e.getMessage().startsWith("rects.length == 0")){
-                    server.frameBufferUpdateRequest( this, false, 0, 0, 1, 1 );
+    private void doFrameBufferUpdate() throws IOException{
+        synchronized(updateQueue){
+            Iterator iter = updateQueue.iterator();
+            while(iter.hasNext()){
+                UpdateRequest ur = (UpdateRequest)iter.next();
+                iter.remove();
+                // Delegate to server
+                try {
+                    System.out.println("RFBSocket is doing an update");
+                    server.frameBufferUpdateRequest( this, ur.incremental, ur.x, ur.y, ur.w, ur.h );
+                    System.out.println("RFBSocket is done");
                 }
-                else{
-                    // rethrow it
-                    throw e;
+                catch(IOException e)  // some times we have w==h==0 and it would result in a blue screen on the official VNC client.
+                {
+                    System.out.println(" !!!! RFBSocket exception: " + e);
+                    // if there is nothing to encode, encode the top left pixel instead
+                    if(e.getMessage().startsWith("rects.length == 0")){
+                        server.frameBufferUpdateRequest( this, false, 0, 0, 1, 1 );
+                    }
+                    else{
+                        // rethrow it
+                        throw e;
+                    }
                 }
-            }
-            finally{
-                setUpdateIsAvailable(false);
             }
         }
     }
@@ -463,16 +466,23 @@ public class RFBSocket implements RFBClient, Runnable {
         return(socket.getInetAddress());
     }
 
-    public String getName(){
-        return(host.getDisplayName());
-    }
-
-    public void setUpdateIsAvailable(boolean value) {
-        updateAvailable = value;
-    }
-
-    public boolean getUpdateIsAvailable() {
-        return(updateAvailable);
+    public void updateAvailable() {
+        updateHandler.execute(new Runnable()
+            {
+                public void run()
+                {
+                    try
+                    {
+                        doFrameBufferUpdate();
+                    }
+                    catch (IOException ex)
+                    {
+                        // In fact we're probably doubling these, since read thread will most likely also show them
+                        System.out.println("IOException on socket write, drop the client");
+                        close();
+                    }
+                }
+            });
     }
 
     private class UpdateRequest{

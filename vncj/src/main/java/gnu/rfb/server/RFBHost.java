@@ -77,7 +77,7 @@ public class RFBHost implements Runnable {
             // Create client for each connected socket
             RFBSocket r;
 			try {
-				r = new RFBSocket( serverSocket.accept(), factory.getInstance(true), this, factory.getAuthenticator() );
+				r = new RFBSocket( serverSocket.accept(), factory.getInstance(true), factory.getAuthenticator() );
                 clientSockets.add(r);
 			} catch (Exception e) {
 				if (!isRunning()) {

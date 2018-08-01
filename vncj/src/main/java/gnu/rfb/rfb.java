@@ -41,6 +41,8 @@ public abstract class rfb
 	public static final int SetColourMapEntries = 1;
 	public static final int Bell = 2;
 	public static final int ServerCutText = 3;
+    // Most clients don't seem to support Keep Alive messages
+	public static final int KeepAlive = 13;
 	
 	// Messages from client to server
 	public static final int SetPixelFormat = 0;

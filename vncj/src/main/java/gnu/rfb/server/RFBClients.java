@@ -46,6 +46,11 @@ public class RFBClients
 	{
 		return clients.isEmpty();
 	}
+    
+    public int size()
+    {
+        return clients.size();
+    }
 	
 	public void addClient( RFBClient client )
 	{

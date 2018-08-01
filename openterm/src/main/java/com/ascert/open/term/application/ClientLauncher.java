@@ -46,6 +46,7 @@ import com.ascert.open.term.gui.EmulatorPanel;
 
 import gnu.rfb.server.DefaultRFBAuthenticator;
 import gnu.rfb.server.RFBAuthenticator;
+import gnu.rfb.server.RFBClient;
 import gnu.rfb.server.RFBHost;
 import gnu.rfb.server.RFBServer;
 import gnu.rfb.server.RFBServerFactory;
@@ -150,10 +151,52 @@ public class ClientLauncher
         log.fine("*** emulator frame size: " + frmEmul8.getBounds());
     }
     
+    private static void saveScreenShot(Component comp, String fileName)
+        throws IOException
+    {
+            BufferedImage bi = getScreenShot(comp);
+            File outFile = new File(fileName);
+            ImageIO.write(bi, "png", outFile);
+    }
+    
+    private static BufferedImage getScreenShot(Component panel)
+    {
+        BufferedImage bi = new BufferedImage(
+            panel.getWidth(), panel.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        panel.paint(bi.getGraphics());
+        return bi;
+    }
+    
+    
     //-------------------------------------------------------------------------------------------------------
     // Everything below here is experimental/prototype code for a sort of terminal server
     // which can be connected to using a standard VNC client
     //
+    
+    private static List<RFBHost> rfbHosts = new ArrayList<> ();
+
+    
+    /**
+     * Starts a simple emulator server
+     */
+    private static void startEmulatorServer(int serverPort, List<Host> availableHosts)
+        throws Exception
+    {
+        if (availableHosts.size() < 1)
+        {
+            throw new RuntimeException("Must be at least 1 host configured to act as an Emulator Server.");
+        }
+
+        log.fine(String.format(" server port: %d, host count: %d", serverPort, availableHosts.size()));
+
+        for (int ix = 0; ix < availableHosts.size(); ix++)
+        {
+            RFBServerFactory factory = new RemoteScreenServerFactory(ix, availableHosts.get(ix));
+            //TODO - need to allow password setting, poss per host
+            rfbHosts.add(new RFBHost(factory));
+        }
+        
+    }
     
     public static class RemoteScreenServerFactory implements RFBServerFactory
     {
@@ -175,13 +218,20 @@ public class ClientLauncher
         public RFBServer getInstance(boolean newClientConnection) throws InstantiationException, IllegalAccessException,
                                                                          IllegalArgumentException, InvocationTargetException
         {
-            // In theory a JPanel is a lightweight component, and hence possibly renderable headless. Also doesn't need to be 
-            // made visible or receive focus for use.
-            EmulatorPanel pnlEmul8 = new EmulatorPanel(hosts, null);
-            //EmulatorFrame frmEmul8 = new EmulatorFrame(hosts);
-            //EmulatorPanel pnlEmul8 = frmEmul8.pnlEmul8;
-            //frmEmul8.setVisible(true);
-            return new VNCScreenRobot(pnlEmul8.getTerminalScreen(), String.format("%s (%d)", getDisplayName(), connCount++));
+            
+            RFBServer retval = null;
+            
+            if (newClientConnection)
+            {
+                // In theory a JPanel is a lightweight component, and hence possibly renderable headless. Also doesn't need to be 
+                // made visible or receive focus for use.
+                EmulatorPanel pnlEmul8 = new EmulatorPanel(hosts, null);
+                //EmulatorFrame frmEmul8 = new EmulatorFrame(hosts);
+                //EmulatorPanel pnlEmul8 = frmEmul8.pnlEmul8;
+                //frmEmul8.setVisible(true);
+                retval = new RemoteTerminal(pnlEmul8, String.format("%s (%d)", getDisplayName(), connCount++));
+            }
+            return retval;
         }
 
         @Override
@@ -211,45 +261,28 @@ public class ClientLauncher
      
     }
     
-    private static List<RFBHost> rfbHosts = new ArrayList<> ();
-
+    // Bit of a hack this, but gives us quick and dirt way to detect when to disconnect terminal from host
+    // A listener model would be cleaner
     
-    /**
-     * Starts a simple emulator server
-     */
-    private static void startEmulatorServer(int serverPort, List<Host> availableHosts)
-        throws Exception
+    public static class RemoteTerminal extends VNCScreenRobot
     {
-        if (availableHosts.size() < 1)
+        private final EmulatorPanel pnlEmul8;
+        
+        public RemoteTerminal(EmulatorPanel pnlEmul8, String displayName)
         {
-            throw new RuntimeException("Must be at least 1 host configured to act as an Emulator Server.");
-        }
-
-        log.fine(String.format(" server port: %d, host count: %d", serverPort, availableHosts.size()));
-
-        for (int ix = 0; ix < availableHosts.size(); ix++)
-        {
-            RFBServerFactory factory = new RemoteScreenServerFactory(ix, availableHosts.get(ix));
-            //TODO - need to allow password setting, poss per host
-            rfbHosts.add(new RFBHost(factory));
+            super(pnlEmul8.getTerminalScreen(), displayName);
+            this.pnlEmul8 = pnlEmul8;
         }
         
-    }
-    
-    private static void saveScreenShot(Component comp, String fileName)
-        throws IOException
-    {
-            BufferedImage bi = getScreenShot(comp);
-            File outFile = new File(fileName);
-            ImageIO.write(bi, "png", outFile);
-    }
-    
-    private static BufferedImage getScreenShot(Component panel)
-    {
-        BufferedImage bi = new BufferedImage(
-            panel.getWidth(), panel.getHeight(), BufferedImage.TYPE_INT_ARGB);
-        panel.paint(bi.getGraphics());
-        return bi;
+        public void removeClient( RFBClient client )
+        {
+            super.removeClient(client);
+            if (getClientCount() == 0)
+            {
+                pnlEmul8.disconnect();
+            }
+        }
+        
     }
     
 }
