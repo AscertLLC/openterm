@@ -1,59 +1,62 @@
-package gnu.rfb.server;
-
-/**
- * <br><br><center><table border="1" width="80%"><hr>
- * <strong><a href="http://www.amherst.edu/~tliron/vncj">VNCj</a></strong>
- * <p>
-* Copyright (C) 2000-2002 by Tal Liron
- * <p>
- * This program is free software; you can redistribute it and/or
-* modify it under the terms of the GNU Lesser General Public License
-* as published by the Free Software Foundation; either version 2.1
- * of the License, or (at your option) any later version.
- * <p>
- * This program is distributed in the hope that it will be useful,
+/*
+ * Copyright (c) 2018 Ascert, LLC.
+ * www.ascert.com
+ *
+ * Based on original code from vncj (https://github.com/tliron/vncj)
+ * Rights for for derivations from original works remain:
+ *      Copyright (C) 2000-2002 by Tal Liron
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* <a href="http://www.gnu.org/copyleft/lesser.html">GNU Lesser General Public License</a>
- * for more details.
- * <p>
-* You should have received a copy of the <a href="http://www.gnu.org/copyleft/lesser.html">
-* GNU Lesser General Public License</a> along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <hr></table></center>
- **/
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
+package com.ascert.open.rfb.server;
 
 import java.net.*;
 import java.io.*;
 import java.util.*;
 import java.lang.reflect.*;
+
 import gnu.logging.*;
+import gnu.rfb.server.RFBAuthenticator;
+import gnu.rfb.server.RFBServer;
 
 
-public class RFBHost implements Runnable {
+public class RFBSocketHost implements Runnable {
     
     ///////////////////////////////////////////////////////////////////////////////////////
     // Private
     
-    //private RFBServer sharedServer = null;
     private boolean isRunning;
     private boolean threadFinished;
+    private int port = 5900;
     private ServerSocket serverSocket;
-    private ArrayList<RFBSocket> clientSockets = new ArrayList();
+    private ArrayList<RFBProtocolHandler> clientSockets = new ArrayList();
     private RFBServerFactory factory;
     
     //
     // Construction
     //
     
-    public RFBHost( int display, String displayName, Class rfbServerClass, RFBAuthenticator authenticator ) throws NoSuchMethodException 
+    public RFBSocketHost( int port, int display, String displayName, Class rfbServerClass, RFBAuthenticator authenticator ) throws NoSuchMethodException 
     {
-        this(new ShareableServerFactory(display, displayName, rfbServerClass, authenticator));
+        this(port, new ShareableServerFactory(display, displayName, rfbServerClass, authenticator));
     }
     
-    public RFBHost(RFBServerFactory factory )
+    public RFBSocketHost(int port, RFBServerFactory factory)
     {
         this.factory = factory;
+        this.port = port;
         new Thread( this ).start();        
     }
     
@@ -65,8 +68,7 @@ public class RFBHost implements Runnable {
         isRunning=true;
         threadFinished=false;
         try {
-            serverSocket = new ServerSocket( 5900 + factory.getDisplay() );
-            //setSharedServer(factory.getInstance(false));
+            serverSocket = new ServerSocket( port + factory.getDisplay() );
         }
         catch(Exception e) {
             VLogger.getLogger().log("Got an exception, shutting down server VNCServer for: " + factory.getDisplayName(),e); 
@@ -75,9 +77,14 @@ public class RFBHost implements Runnable {
         
         while( isRunning() ) {
             // Create client for each connected socket
-            RFBSocket r;
+            RFBProtocolHandler r;
 			try {
-				r = new RFBSocket( serverSocket.accept(), factory.getInstance(true), factory.getAuthenticator() );
+                Socket s = serverSocket.accept();
+                
+				r = new RFBProtocolHandler( new BufferedInputStream (s.getInputStream()),
+                                            new BufferedOutputStream(s.getOutputStream(), 16384 ),
+                                            factory.getInstance(true), 
+                                            factory.getAuthenticator() );
                 clientSockets.add(r);
 			} catch (Exception e) {
 				if (!isRunning()) {
@@ -110,7 +117,7 @@ public class RFBHost implements Runnable {
             // now go through all of there clientSockets that were spawned
             Iterator iter = clientSockets.iterator();
             while(iter.hasNext()){
-                ((RFBSocket)iter.next()).close();
+                ((RFBProtocolHandler)iter.next()).close();
             }
         }
         catch(IOException e){
@@ -127,7 +134,7 @@ public class RFBHost implements Runnable {
         // now go through all of there clientSockets that were spawned
         Iterator iter = clientSockets.iterator();
         while(iter.hasNext()){
-            ((RFBSocket)iter.next()).close();
+            ((RFBProtocolHandler)iter.next()).close();
         }
 
     	try

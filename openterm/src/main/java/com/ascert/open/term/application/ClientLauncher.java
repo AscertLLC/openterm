@@ -47,10 +47,15 @@ import com.ascert.open.term.gui.EmulatorPanel;
 import gnu.rfb.server.DefaultRFBAuthenticator;
 import gnu.rfb.server.RFBAuthenticator;
 import gnu.rfb.server.RFBClient;
-import gnu.rfb.server.RFBHost;
+
+import com.ascert.open.rfb.server.RFBSocketHost;
+
 import gnu.rfb.server.RFBServer;
-import gnu.rfb.server.RFBServerFactory;
-import gnu.vnc.awt.VNCScreenRobot;
+
+import com.ascert.open.rfb.server.RFBServerFactory;
+import com.ascert.open.rfb.server.RFBWebSocketHost;
+
+import com.ascert.open.vnc.VNCScreenRobot;
     
 /**
  * Behaviour is a little different here to original Freehost3270. A new TerminalFactory model has been added that supports emulators for 
@@ -70,7 +75,8 @@ public class ClientLauncher
 
     public static final String KEY_TERM_FACTORIES = "com.ascert.open.term.factories";
     public static final String KEY_HOSTS = "com.ascert.open.term.hosts";
-    public static final String KEY_SERVER = "com.ascert.open.term.server.port";
+    public static final String KEY_SOCKET_PORT = "com.ascert.open.term.server.socket";
+    public static final String KEY_WEBSOCKET_PORT = "com.ascert.open.term.server.websocket";
 
     public static SimpleConfig config;
 
@@ -87,7 +93,8 @@ public class ClientLauncher
         String factories = OpenTermConfig.getProp(KEY_TERM_FACTORIES);
         String hosts = OpenTermConfig.getProp(KEY_HOSTS);
         String favouriteHosts = OpenTermConfig.getProp("favourite.hosts");
-        int serverPort = OpenTermConfig.getIntProp(KEY_SERVER, -1);
+        int socketPort = OpenTermConfig.getIntProp(KEY_SOCKET_PORT, -1);
+        int websocketPort = OpenTermConfig.getIntProp(KEY_WEBSOCKET_PORT, -1);
         
         log.fine("launching FreeHost standalone GUI client with parameters:");
         log.fine(KEY_HOSTS + " = " + hosts);
@@ -103,16 +110,14 @@ public class ClientLauncher
         //GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment(); 
         //if (!ge.isHeadless())
         
-        if (serverPort == -1)  
+        if (socketPort == -1 && websocketPort == -1)  
         {
             setLookAndFeel();
             startEmulator(availableHosts);
         }
         else
         {
-            //TODO - start a server daemon in here e.g. to listen for VNC connections
-            //       for now just add a wait so we can see if any errors come out
-            startEmulatorServer(serverPort, availableHosts);
+            startEmulatorServer(socketPort, websocketPort, availableHosts);
         }
     }
     
@@ -173,30 +178,70 @@ public class ClientLauncher
     // which can be connected to using a standard VNC client
     //
     
-    private static List<RFBHost> rfbHosts = new ArrayList<> ();
-
+    private static List<RFBServerFactory> rfbFactories = new ArrayList<> ();
+    private static List<RFBSocketHost> rfbHosts = new ArrayList<> ();
+    private static RFBWebSocketHost hst;
     
     /**
      * Starts a simple emulator server
      */
-    private static void startEmulatorServer(int serverPort, List<Host> availableHosts)
+    private static void startEmulatorServer(int socketPort, int websocketPort, List<Host> availableHosts)
         throws Exception
     {
         if (availableHosts.size() < 1)
         {
             throw new RuntimeException("Must be at least 1 host configured to act as an Emulator Server.");
         }
-
-        log.fine(String.format(" server port: %d, host count: %d", serverPort, availableHosts.size()));
-
-        for (int ix = 0; ix < availableHosts.size(); ix++)
+        
+        initServerFactories(availableHosts);
+        
+        if (socketPort != -1)
         {
-            RFBServerFactory factory = new RemoteScreenServerFactory(ix, availableHosts.get(ix));
-            //TODO - need to allow password setting, poss per host
-            rfbHosts.add(new RFBHost(factory));
+            startSocketServer(socketPort);
         }
         
+        if (websocketPort != -1)
+        {
+            startWebSocketServer(websocketPort);
+        }
     }
+    
+    private static void initServerFactories(List<Host> availableHosts)
+    {
+        for (int ix = 0; ix < availableHosts.size(); ix++)
+        {
+            rfbFactories.add(new RemoteScreenServerFactory(ix, availableHosts.get(ix)));
+        }
+    }
+
+    private static void startSocketServer(int port)
+        throws Exception
+    {
+        log.fine(String.format(" socket server port: %d, host count: %d", port, rfbFactories.size()));
+        
+        for (int ix = 0; ix < rfbFactories.size(); ix++)
+        {
+            rfbHosts.add(new RFBSocketHost(port, rfbFactories.get(ix)));
+        }
+    }
+    
+    private static void startWebSocketServer(int port)
+        throws Exception
+    {
+        log.fine(String.format(" websocket server port: %d, host count: %d", port, rfbFactories.size()));
+
+        hst = new RFBWebSocketHost(port);
+        
+        for (int ix = 0; ix < rfbFactories.size(); ix++)
+        {
+            //TODO - need way to paramaterise the path
+            String path = String.format("/host/%d", ix);
+            hst.addFactory(path, rfbFactories.get(ix));
+        }
+        
+        hst.start();
+    }
+
     
     public static class RemoteScreenServerFactory implements RFBServerFactory
     {

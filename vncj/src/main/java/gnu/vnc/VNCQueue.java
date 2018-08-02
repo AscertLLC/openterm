@@ -29,10 +29,6 @@ import gnu.awt.*;
 
 import java.io.*;
 import java.util.*;
-import javax.swing.*;
-import java.awt.Image;
-import java.awt.Graphics;
-import java.awt.image.MemoryImageSource;
 public class VNCQueue {
     //
     // Construction

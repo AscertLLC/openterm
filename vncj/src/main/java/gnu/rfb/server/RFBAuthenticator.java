@@ -23,7 +23,10 @@ package gnu.rfb.server;
 * <hr></table></center>
 **/
 
+import com.ascert.open.rfb.server.RFBProtocolHandler;
+
 import gnu.rfb.*;
+
 import java.io.*;
 import java.util.*;
 import java.net.*;
@@ -32,7 +35,7 @@ public interface RFBAuthenticator
 {
 	// Attributes
     //public boolean authenticate(DataInputStream in, DataOutputStream out) throws IOException;
-    public boolean authenticate(DataInputStream in, DataOutputStream out, RFBSocket clientSocket) throws IOException;
+    public boolean authenticate(DataInputStream in, DataOutputStream out, RFBProtocolHandler clientSocket) throws IOException;
     public int getAuthScheme( RFBClient client );
 }
 

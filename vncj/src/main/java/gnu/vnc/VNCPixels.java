@@ -1,4 +1,4 @@
-package gnu.vnc.awt;
+package gnu.vnc;
 
 /**
 * <br><br><center><table border="1" width="80%"><hr>
@@ -23,176 +23,220 @@ package gnu.vnc.awt;
 * <hr></table></center>
 **/
 
+import gnu.vnc.*;
 import gnu.rfb.*;
 import gnu.rfb.server.*;
+import gnu.awt.*;
 
 import java.io.*;
-import java.awt.*;
-import java.awt.image.*;
-import java.awt.event.*;
+import java.util.*;
 
-public class VNCRobot extends Component implements RFBServer
+public class VNCPixels implements RFBServer, PixelsOwner
 {
+
+ /**
+  * VNCScreenEvents to forward events to
+  */
+ private com.ascert.open.vnc.VNCScreenEvents events = null;
+
+ public void setVNCEventsHandler(com.ascert.open.vnc.VNCScreenEvents events)
+ {
+  this.events = events;
+ }
+
+ public com.ascert.open.vnc.VNCScreenEvents getVNCEventsHandler()
+ {
+  return events;
+ }
+
+
+
 	//
 	// Construction
 	//
-	
-	public VNCRobot( int display, String displayName )
+
+	public VNCPixels( String name, int width, int height )
 	{
-		this.displayName = displayName;
-		device = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
-		try
-		{
-			robot = new Robot( device );
-		}
-		catch( AWTException x )
-		{
-		}
+		this.name = name;
+		this.width = width;
+		this.height = height;
+
+		queue = new VNCQueue( clients );
+
+		pixelArray = new int[ width * height ];
 	}
-	
+
+        /**
+         * externalize queue to manually add entries
+         * @return
+         */
+        public VNCQueue getQueue()
+        {
+         return(queue);
+        }
+
+	//
+	// Operations
+	//
+
+	public void dispose()
+	{
+	}
+
 	//
 	// RFBServer
 	//
 
 	// Clients
-	
+
 	public void addClient( RFBClient client )
 	{
+		clients.addClient( client );
 	}
-	
+
+        public RFBClients getClients()
+        {
+         return(clients);
+        }
+
 	public void removeClient( RFBClient client )
 	{
+		clients.removeClient( client );
+		if( clients.isEmpty() && !shared )
+		{
+			clients.closeAll();
+			dispose();
+		}
 	}
-	
+
 	// Attributes
-	
+
 	public String getDesktopName( RFBClient client )
 	{
-		return displayName;
+		return name;
 	}
-	
+
 	public int getFrameBufferWidth( RFBClient client )
 	{
-		//return 200;
-		return device.getDefaultConfiguration().getBounds().width;
+		return width;
 	}
-	
+
 	public int getFrameBufferHeight( RFBClient client )
 	{
-		//return 200;
-		return device.getDefaultConfiguration().getBounds().height;
+		return height;
 	}
-	
+
 	public PixelFormat getPreferredPixelFormat( RFBClient client )
 	{
 		return PixelFormat.RGB888;
 	}
-	
+
 	public boolean isSharingAllowed()
 	{
 		return true;
 	}
-	
+
 	// Messages from client to server
 
 	public void setClientProtocolVersionMsg( RFBClient client, String protocolVersionMsg ) throws IOException
 	{
 	}
-	
+
 	public void setShared( RFBClient client, boolean shared ) throws IOException
 	{
+		if( shared )
+			this.shared = true;
 	}
-	
+
 	public void setPixelFormat( RFBClient client, PixelFormat pixelFormat ) throws IOException
 	{
-		pixelFormat.setDirectColorModel( (DirectColorModel) Toolkit.getDefaultToolkit().getColorModel() );
 	}
-	
+
 	public void setEncodings( RFBClient client, int[] encodings ) throws IOException
 	{
 	}
-	
+
 	public void fixColourMapEntries( RFBClient client, int firstColour, Colour[] colourMap ) throws IOException
 	{
 	}
-	
+
 	public void frameBufferUpdateRequest( RFBClient client, boolean incremental, int x, int y, int w, int h ) throws IOException
 	{
-		if( incremental )
-			return;
-			
-		// Create image
-		BufferedImage image = robot.createScreenCapture( new Rectangle( x, y, w, h ) );
-		
-		// Encode image
-		Rect r = Rect.encode( client.getPreferredEncoding(), client.getPixelFormat(), image, x, y, w, h );
-		
-		// Write to client
-		Rect[] rects = { r };
-		try
-		{
-			client.writeFrameBufferUpdate( rects );
-		}
-		catch( IOException xx )
-		{
-			xx.printStackTrace();
-		}
+        queue.takeSnapshot(this);
+	    queue.frameBufferUpdate( client, incremental, x, y, w, h);
 	}
-	
+
 	public void keyEvent( RFBClient client, boolean down, int key ) throws IOException
 	{
-		int vk = keysym.toVKall( key );
-		if( vk != 0 )
-		{
-			if( down )
-				robot.keyPress( vk );
-			else	
-				robot.keyRelease( vk );
-		}	
+//         System.err.println("DEBUG[VNCPixels] keyEvent");
+        if( events!=null)
+        {
+            events.translateKeyEvent(client, down, key);
+        }
+        else
+        {
+        	updateAll();
+        }
 	}
-	
+
 	public void pointerEvent( RFBClient client, int buttonMask, int x, int y ) throws IOException
 	{
-		// Modifiers		
-		int newMouseModifiers = 0;
-		if( ( buttonMask & rfb.Button1Mask ) != 0 )
-			newMouseModifiers |= MouseEvent.BUTTON1_MASK;
-		if( ( buttonMask & rfb.Button2Mask ) != 0 )
-			newMouseModifiers |= MouseEvent.BUTTON2_MASK;
-		if( ( buttonMask & rfb.Button3Mask ) != 0 )
-			newMouseModifiers |= MouseEvent.BUTTON3_MASK;
-		
-		if( newMouseModifiers != mouseModifiers )
-		{
-			// Change of button state
-			if( mouseModifiers == 0 )
-			{
-				robot.keyPress( newMouseModifiers );
-			}
-			else
-			{
-				robot.keyRelease( newMouseModifiers );
-			}
-			
-			mouseModifiers = newMouseModifiers;
-		}
-		
-		robot.mouseMove( x, y );
+//         System.err.println("DEBUG[VNCPixels] pointerEvent");
+        if( events!=null) {
+            events.translatePointerEvent(client, buttonMask, x, y);
+        }
+        else
+        {
+        	updateAll();
+        }
 	}
-	
+
 	public void clientCutText( RFBClient client, String text ) throws IOException
 	{
 	}
 
-        public boolean isUpdateAvailable(RFBClient client){
-            return false;
-        }
+	//
+	// PixelsOwner
+	//
+
+	public int[] getPixels()
+	{
+		return pixelArray;
+	}
+
+	public void setPixelArray( int[] pixelArray, int pixelWidth, int pixelHeight )
+	{
+		this.pixelArray = pixelArray;
+		this.width = pixelWidth;
+		this.height = pixelHeight;
+	}
+
+	public int getPixelWidth()
+	{
+		return width;
+	}
+
+	public int getPixelHeight()
+	{
+		return height;
+	}
+	public void updateAll() throws IOException{
+		for( Enumeration e = clients.elements(); e.hasMoreElements(); ){
+			RFBClient client = (RFBClient)e.nextElement();
+			frameBufferUpdateRequest( client, false, 0, 0, width, height );
+		}
+		
+	}
+
 	///////////////////////////////////////////////////////////////////////////////////////
 	// Private
-	
-	private String displayName;
-	private GraphicsDevice device;
-	private Robot robot;
-	private int mouseModifiers = 0;
+
+	private String name;
+	private int width;
+	private int height;
+	private RFBClients clients = new RFBClients();
+	private boolean shared = false;
+	private int[] pixelArray = null;
+	protected VNCQueue queue;
 }
 

@@ -119,21 +119,26 @@ public class PixelFormat
 		output.writeByte( blueShift );
 	}
 
-	public void print( PrintStream stream )
+	public String toString ()
 	{
-		stream.println( "Bits-per-pixel: " + bitsPerPixel );
-		stream.println( "Depth:          " + depth );
-		stream.println( "Big Endian:     " + bigEndian );
-		stream.println( "True Colour:    " + trueColour );
+        StringBuilder buf = new StringBuilder();
+        
+		buf.append( "Bits-per-pixel=" + bitsPerPixel );
+		buf.append( ", Depth=" + depth );
+		buf.append( ", Big Endian=" + bigEndian );
+		buf.append( ", True Colour=" + trueColour );
 		if( trueColour )
 		{
-			stream.println( "R max:   " + redMax );
-			stream.println( "G max:   " + greenMax );
-			stream.println( "B max:   " + blueMax );
-			stream.println( "R shift: " + redShift );
-			stream.println( "G shift: " + greenShift );
-			stream.println( "B shift: " + blueShift );
+			buf.append( "[");
+			buf.append( "R max=" + redMax );
+			buf.append( ", G max=" + greenMax );
+			buf.append( ", B max=" + blueMax );
+			buf.append( ", R shift=" + redShift );
+			buf.append( ", G shift=" + greenShift );
+			buf.append( ", B shift=" + blueShift );
+			buf.append( "]");
 		}
+        return buf.toString();
 	}
 	
 	public int translatePixel( int pixel )

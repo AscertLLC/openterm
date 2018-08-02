@@ -23,7 +23,10 @@ package gnu.rfb.server;
 * <hr></table></center>
 **/
 
+import com.ascert.open.rfb.server.RFBProtocolHandler;
+
 import gnu.rfb.*;
+
 import java.io.*;
 import java.util.*;
 
@@ -38,7 +41,7 @@ public class DefaultRFBAuthenticator implements RFBAuthenticator
     private int auth;
     String password = null;
     boolean authSuccessfull = false;
-    String ip = null;
+    //String ip = null;
     
 	public DefaultRFBAuthenticator(String password)
 	{
@@ -50,11 +53,11 @@ public class DefaultRFBAuthenticator implements RFBAuthenticator
 		return auth;
 	}
     
-    public boolean authenticate(DataInputStream in, DataOutputStream out, RFBSocket clientSocket) throws IOException{
+    public boolean authenticate(DataInputStream in, DataOutputStream out, RFBProtocolHandler clientSocket) throws IOException{
         System.out.println("Starting authenication for defaultRFBAuthenicator: " );
         out.writeInt( rfb.VncAuth);
-        ip = clientSocket.getInetAddress().getHostAddress();
-        System.out.println("Starting authenication for SecurityRFBAuthenicator: " + ip);
+        //ip = clientSocket.getInetAddress().getHostAddress();
+        System.out.println("Starting authenication for SecurityRFBAuthenicator: " + clientSocket);
         authSuccessfull = DefaultRFBAuthenticator.enterPassword(in, out, password); 
         if(authSuccessfull == true){
             System.out.println("authentication successfull.  Asking user to enter password");

@@ -47,7 +47,7 @@ import com.ascert.open.term.i3270.Term3270;
 import com.ascert.open.term.core.Terminal;
 import com.ascert.open.term.core.TerminalFactoryRegistrar;
 
-import gnu.vnc.Screen;
+import com.ascert.open.vnc.Screen;
 
 /**
  * Main terminal emulator panel, which includes menu, F-key bar, and actual terminal screen.

@@ -57,8 +57,8 @@ import com.ascert.open.term.core.TermChar;
 import com.ascert.open.term.core.Terminal;
 import com.ascert.open.term.core.TnAction;
 
-import gnu.vnc.ScreenImageListener;
-import gnu.vnc.Screen;
+import com.ascert.open.vnc.ScreenImageListener;
+import com.ascert.open.vnc.Screen;
 
 /**
  * A SWING component that interactively renders terminal screen contents and handles user to terminal interaction.
