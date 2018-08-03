@@ -26,13 +26,17 @@ import java.net.*;
 import java.io.*;
 import java.util.*;
 import java.lang.reflect.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-import gnu.logging.*;
 import gnu.rfb.server.RFBAuthenticator;
 import gnu.rfb.server.RFBServer;
 
 
-public class RFBSocketHost implements Runnable {
+public class RFBSocketHost implements Runnable 
+{
+    
+    private static final Logger log = Logger.getLogger(RFBSocketHost.class.getName());
     
     ///////////////////////////////////////////////////////////////////////////////////////
     // Private
@@ -65,13 +69,14 @@ public class RFBSocketHost implements Runnable {
     //
     
     public void run() {
+        log.info("Socket server started on port: " + port);
         isRunning=true;
         threadFinished=false;
         try {
             serverSocket = new ServerSocket( port + factory.getDisplay() );
         }
         catch(Exception e) {
-            VLogger.getLogger().log("Got an exception, shutting down server VNCServer for: " + factory.getDisplayName(),e); 
+            log.log(Level.SEVERE, "Exception shutting down server VNCServer: " + factory.getDisplayName(), e); 
             close();
         }
         
@@ -88,7 +93,7 @@ public class RFBSocketHost implements Runnable {
                 clientSockets.add(r);
 			} catch (Exception e) {
 				if (!isRunning()) {
-					System.out.println("Server Stopped.");
+					log.info("Socket server stopped on port: " + port);
 					return;
 				}
 				// TODO Auto-generated catch block
@@ -97,7 +102,7 @@ public class RFBSocketHost implements Runnable {
 			}
         }
         threadFinished=true;
-        System.out.println("Thread Finished");
+        log.finest("Thread Finished");
     }
     
     public void close(){
@@ -121,7 +126,7 @@ public class RFBSocketHost implements Runnable {
             }
         }
         catch(IOException e){
-            VLogger.getLogger().log("Got an exception while shutting down server VNCServer for: " + factory.getDisplayName(),e); 
+            log.log(Level.SEVERE, "Exception shutting down server VNCServer: " + factory.getDisplayName(), e); 
         }
         finally{
             serverSocket=null;
@@ -146,7 +151,7 @@ public class RFBSocketHost implements Runnable {
     		throw new RuntimeException("Error closing server", ex);
     	}
 
-        System.out.println("end of the work");
+        log.finest("end of the work");
         Thread.currentThread().interrupt();
     }
     

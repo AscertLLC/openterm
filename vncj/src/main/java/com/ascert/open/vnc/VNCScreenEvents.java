@@ -29,47 +29,16 @@ import java.awt.*;
 import java.awt.event.*;
 import java.util.*;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 
 
 public class VNCScreenEvents
 {
+    
+    private static final Logger log = Logger.getLogger(VNCScreenEvents.class.getName());
 
-    /**
-     * for debug-loging (using Log4J or System.err depending on avliability)
-     */
-    static Object log;
-    /**
-     * for debug-loging (using Log4J or System.err depending on avliability)
-     */
-    static java.lang.reflect.Method logmethod;
-
-    /**
-     * for debug-loging (using Log4J or System.err depending on avliability)
-     */
-    private void logDebug(String msg)
-    {
-        try
-        {
-            if (log == null)
-            {
-                log = System.err;
-                logmethod = java.io.PrintStream.class.getMethod("println", new Class[]
-                                                            {
-                                                                String.class
-                });
-            }
-
-            logmethod.invoke(log, new Object[]
-                         {
-                             msg
-            });
-        }
-        catch (Exception x)
-        {
-            x.printStackTrace();
-            System.err.println(msg);
-        }
-    }
     //
     // Construction
     //
@@ -321,12 +290,15 @@ public class VNCScreenEvents
      * The function to create the KeyEvent
      * 		TODO: check if there is a need of the location translation
      */
-    private void fireKeyEvent(RFBClient client, int id, int vk, char character, int keyModifiers)
+    private void fireKeyEvent(RFBClient client, int id, int vk, char ch, int keyModifiers)
     {
-        KeyEvent ke = new KeyEvent(evtComponent, id, System.currentTimeMillis(), keyModifiers, vk, character, KeyEvent.KEY_LOCATION_UNKNOWN);
-        logDebug("fireKeyEvent(id=" + id + ", vk=" + vk + " character=" + character + " getKeyText=" + ke.getKeyText(ke.getKeyCode())
-                 + " screen=" + screen.getClass().getName());
-        //fireEvent(client, ke );
+        KeyEvent ke = new KeyEvent(evtComponent, id, System.currentTimeMillis(), keyModifiers, vk, ch, KeyEvent.KEY_LOCATION_UNKNOWN);
+        // Heavily used loop, so avoid String construction costs is not logging
+        if (log.isLoggable(Level.FINEST))
+        {
+            log.finest(String.format("fireKeyEvent id=%d, vk=%d, character=%c, getKeyText=%s, screen=%s", id, vk, ch, ke.getKeyText(ke.getKeyCode()), screen));
+        }
+        
         eventsHandler.execute(new Runnable()
         {
             public void run()
@@ -343,7 +315,12 @@ public class VNCScreenEvents
             return;
         }
 
-        //logDebug("fireMouseEvent(id="+id+", btn="+button+", clk="+clicks+", x="+x+", y="+y+" screen=["+screen.getClass().getName()+"]");
+        // Heavily used loop, so avoid String construction costs is not logging
+        if (log.isLoggable(Level.FINEST))
+        {
+            log.finest(String.format("fireMouseEvent(id=%d, btn=%d, clk=%d, x=%d, y=%d, screen=[%s]", id, button, clicks, x, y, screen));
+        }
+        
         MouseEvent me;
 
         if (button < 0)

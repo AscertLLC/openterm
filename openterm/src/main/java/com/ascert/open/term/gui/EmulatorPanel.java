@@ -30,8 +30,6 @@ import java.awt.BorderLayout;
 import java.awt.Event;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.FocusEvent;
-import java.awt.event.FocusListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.util.ArrayList;
@@ -47,7 +45,6 @@ import com.ascert.open.term.i3270.Term3270;
 import com.ascert.open.term.core.Terminal;
 import com.ascert.open.term.core.TerminalFactoryRegistrar;
 
-import com.ascert.open.vnc.Screen;
 
 /**
  * Main terminal emulator panel, which includes menu, F-key bar, and actual terminal screen.
@@ -88,6 +85,7 @@ public class EmulatorPanel extends JPanel
     // Although the keyboard and mouse input are disabled, characters and keys can still be injected
     // by a controlling program
     protected boolean interactionAllowed = true;
+    private boolean serverMode;
     
     /**
      * No-ops constructor. Asks users to enter the connection settings in the corresponding dialog box then proceeds as normal.
@@ -97,10 +95,25 @@ public class EmulatorPanel extends JPanel
         this(new ArrayList<Host> (), null);
     }
 
-    public EmulatorPanel(List<Host> available, JFrame parent)
+    /** 
+     * Single host constructor, typical used for terminal server mode
+     * 
+     * @param host
+     * @param server 
+     */
+    public EmulatorPanel(Host host, boolean serverMode)
     {
         super();
-        this.available = available;
+        this.serverMode = serverMode;
+        this.available.add(host);
+        init();
+    }
+    
+    
+    public EmulatorPanel(List<Host> hosts, JFrame parent)
+    {
+        super();
+        this.available.addAll(hosts);
         this.parentFrame = parentFrame;
         init();
     }
@@ -495,7 +508,7 @@ public class EmulatorPanel extends JPanel
                     }
                     catch (Exception e)
                     {
-                        showConnectionErrorDialog(e.getMessage());
+                        showConnectionError(e.getMessage());
                     }
                 }
             });
@@ -524,7 +537,7 @@ public class EmulatorPanel extends JPanel
                             }
                             catch (Exception e)
                             {
-                                showConnectionErrorDialog(e.getMessage());
+                                showConnectionError(e.getMessage());
                             }
                             
                             // Add to list regardless of connection success
@@ -601,15 +614,21 @@ public class EmulatorPanel extends JPanel
         }
         catch (Exception e)
         {
-            showConnectionErrorDialog(e.getMessage());
+            showConnectionError(e.getMessage());
         }
     }
 
-    private void showConnectionErrorDialog(String message)
+    private void showConnectionError(String message)
     {
-        JOptionPane.showMessageDialog(rhp,
-                                      "Failed to connect to the server:\n" + message,
-                                      "Connection failure", JOptionPane.WARNING_MESSAGE);
+        if (!serverMode)
+        {
+            JOptionPane.showMessageDialog(rhp, "Failed to connect to the server:\n" + message,
+                                          "Connection failure", JOptionPane.WARNING_MESSAGE);
+        }
+        else
+        {
+            log.warning("Failed establish connection to host: " + message);
+        }
     }
 
     //---------------------------------------
@@ -629,15 +648,6 @@ public class EmulatorPanel extends JPanel
             parentFrame.pack();
         }
     }
-    
-    //public void setResizable(boolean resize)
-    //{
-    //    Component parent = getParent();
-    //    if (parent != null && parent instanceof JFrame)
-    //    {
-    //        ((JFrame) parent).setResizable(false);
-    //    }
-    //}
     
     public JTerminalScreen getTerminalScreen()
     {

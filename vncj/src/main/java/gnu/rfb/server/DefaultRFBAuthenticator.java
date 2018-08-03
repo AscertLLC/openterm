@@ -29,9 +29,13 @@ import gnu.rfb.*;
 
 import java.io.*;
 import java.util.*;
+import java.util.logging.Logger;
+
 
 public class DefaultRFBAuthenticator implements RFBAuthenticator
 {
+    private static final Logger log = Logger.getLogger(DefaultRFBAuthenticator.class.getName());
+    
 	//
 	// Construction
 	//
@@ -54,13 +58,13 @@ public class DefaultRFBAuthenticator implements RFBAuthenticator
 	}
     
     public boolean authenticate(DataInputStream in, DataOutputStream out, RFBProtocolHandler clientSocket) throws IOException{
-        System.out.println("Starting authenication for defaultRFBAuthenicator: " );
+        log.fine("Starting authenication for defaultRFBAuthenicator: " );
         out.writeInt( rfb.VncAuth);
         //ip = clientSocket.getInetAddress().getHostAddress();
-        System.out.println("Starting authenication for SecurityRFBAuthenicator: " + clientSocket);
+        log.fine("Starting authenication for SecurityRFBAuthenicator: " + clientSocket);
         authSuccessfull = DefaultRFBAuthenticator.enterPassword(in, out, password); 
         if(authSuccessfull == true){
-            System.out.println("authentication successfull.  Asking user to enter password");
+            log.fine("authentication successfull.  Asking user to enter password");
             //authSuccessfull = DefaultRFBAuthenticator.enterPassword(in, out, password); 
         }
         else{
@@ -85,12 +89,13 @@ public class DefaultRFBAuthenticator implements RFBAuthenticator
         byte[] decryptedBytes = new byte[16];
         in.read(encryptedBytes);
         
+        //TODO - probably can be replaced with standard Java DES classes
         // Initialize the cipher
         DesCipher cipher = new DesCipher(password.getBytes());
-        System.out.println("Password is:" + new String(password));
+        log.fine("Password is:" + new String(password));
         cipher.decrypt(encryptedBytes,0,decryptedBytes,0);
         cipher.decrypt(encryptedBytes,8,decryptedBytes,8);
-        System.out.println("Client sent us:" + new String(decryptedBytes));
+        log.fine("Client sent us:" + new String(decryptedBytes));
         
         boolean authSuccessful = true;
         for(int i = 0;i<16;i++){

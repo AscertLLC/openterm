@@ -22,7 +22,6 @@
 package com.ascert.open.rfb.server;
 
 import gnu.rfb.*;
-import gnu.logging.*;
 import gnu.rfb.server.RFBAuthenticator;
 import gnu.rfb.server.RFBClient;
 import gnu.rfb.server.RFBServer;
@@ -30,9 +29,16 @@ import gnu.rfb.server.RFBServer;
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class RFBProtocolHandler implements RFBClient, Runnable
 {
+    //////////////////////////////////////////////////
+    // STATIC VARIABLES
+    //////////////////////////////////////////////////
+
+    private static final Logger log = Logger.getLogger(RFBProtocolHandler.class.getName());
 
     ///////////////////////////////////////////////////////////////////////////////////////
     // Private
@@ -146,7 +152,7 @@ public class RFBProtocolHandler implements RFBClient, Runnable
         }
 
         int tot = output.size();
-        System.out.println(">>> update bytes written total: " + tot + ", new: " + (tot - prev));
+        log.finer(">>> update bytes written total: " + tot + ", new: " + (tot - prev) + " (" + server.getDesktopName(this) + ")");
         output.flush();
     }
 
@@ -212,7 +218,9 @@ public class RFBProtocolHandler implements RFBClient, Runnable
         }
         catch (IOException e)
         {
-            //VLogger.getLogger().log("Got and exception shutting down RFBProtocolHandler ",e);
+            // There's not much mileage in logging close exceptions usually. Debug trace included just
+            // in case a runtime scenario arises where this does need to be seen
+            log.log(Level.FINEST, "close exception", e);
         }
         finally
         {
@@ -229,25 +237,25 @@ public class RFBProtocolHandler implements RFBClient, Runnable
         isRunning = true;
         try
         {
-            //                 System.err.println("DEBUG[RFBProtocolHandler] run() calling writeProtocolVersionMsg()");
+            log.finest("DEBUG[RFBProtocolHandler] run() calling writeProtocolVersionMsg()");
             // Handshaking
             writeProtocolVersionMsg();
-            //                 System.err.println("DEBUG[RFBProtocolHandler] run() calling readProtocolVersionMsg()");
+            log.finest("DEBUG[RFBProtocolHandler] run() calling readProtocolVersionMsg()");
             readProtocolVersionMsg();
-            //                 System.err.println("DEBUG[RFBProtocolHandler] run() calling writeAuthScheme()");
+            log.finest("DEBUG[RFBProtocolHandler] run() calling writeAuthScheme()");
             //if(((DefaultRFBAuthenticator)authenticator).authenticate(input,output)==false){
             if (authenticator.authenticate(input, output, this) == false)
             {
-                System.out.println("Authentiation failed");
+                log.warning("Failed authentiation attempt for server. (" + server.getDesktopName(this) + ")");
                 return;
             }
-            //                 System.err.println("DEBUG[RFBProtocolHandler] run() calling readClientInit()");
+            log.finest("DEBUG[RFBProtocolHandler] run() calling readClientInit()");
             readClientInit();
-            //                 System.err.println("DEBUG[RFBProtocolHandler] run() calling initServer()");
+            log.finest("DEBUG[RFBProtocolHandler] run() calling initServer()");
             initServer();
-            //                 System.err.println("DEBUG[RFBProtocolHandler] run() calling writeServerInit()");
+            log.finest("DEBUG[RFBProtocolHandler] run() calling writeServerInit()");
             writeServerInit();
-            //                 System.err.println("DEBUG[RFBProtocolHandler] run() message loop");
+            log.finest("DEBUG[RFBProtocolHandler] run() message loop");
 
             // RFBClient read message loop
             while (isRunning)
@@ -281,15 +289,11 @@ public class RFBProtocolHandler implements RFBClient, Runnable
         catch (EOFException eof)
         {
             // This is a normal disconnect
-            System.out.println("Client disconnected.");
-        }
-        catch (IOException x)
-        {
-            System.out.println("IOException on read, drop the client");
+            log.fine("Client disconnect. (" + server.getDesktopName(this) + ")");
         }
         catch (Throwable t)
         {
-            t.printStackTrace();
+            log.log(Level.WARNING, "Exception on read, drop the client. (" + server.getDesktopName(this) + ")", t);
         }
 
         if (server != null)
@@ -339,22 +343,21 @@ public class RFBProtocolHandler implements RFBClient, Runnable
     private synchronized void readClientInit() throws IOException
     {
         shared = input.readUnsignedByte() == 1;
-        VLogger.getLogger().log("Client option - shared: " + shared);
-
+        log.fine("Client option - shared: " + shared + " (" + server.getDesktopName(this) + ")");
     }
 
     private synchronized void writeServerInit() throws IOException
     {
-        //         System.err.println("DEBUG[RFBProtocolHandler] writeServerInit() writing FB-dimension");
+        log.finest("DEBUG[RFBProtocolHandler] writeServerInit() writing FB-dimension");
         output.writeShort(server.getFrameBufferWidth(this));
         output.writeShort(server.getFrameBufferHeight(this));
-        //         System.err.println("DEBUG[RFBProtocolHandler] writeServerInit() writing pixel-format");
+        log.finest("DEBUG[RFBProtocolHandler] writeServerInit() writing pixel-format");
         server.getPreferredPixelFormat(this).writeData(output);
-        //         System.err.println("DEBUG[RFBProtocolHandler] writeServerInit() writing padding");
+        log.finest("DEBUG[RFBProtocolHandler] writeServerInit() writing padding");
         output.writeByte(0); // padding
         output.writeByte(0); // padding
         output.writeByte(0); // padding
-        //         System.err.println("DEBUG[RFBProtocolHandler] writeServerInit() writing desktopname");
+        log.finest("DEBUG[RFBProtocolHandler] writeServerInit() writing desktopname");
         String desktopName = server.getDesktopName(this);
         output.writeInt(desktopName.length());
         output.writeBytes(desktopName);
@@ -414,7 +417,8 @@ public class RFBProtocolHandler implements RFBClient, Runnable
         }
 
         preferredEncoding = Rect.bestEncoding(encodings);
-        System.out.println("preferredEncoding: " + preferredEncoding);
+        
+        log.fine("preferredEncoding: " + preferredEncoding + " (" + server.getDesktopName(this) + ")");
         // Delegate to server
         server.setEncodings(this, encodings);
     }
@@ -457,13 +461,13 @@ public class RFBProtocolHandler implements RFBClient, Runnable
                 // Delegate to server
                 try
                 {
-                    System.out.println("RFBSocket is doing an update");
+                    log.fine("RFBSocket is doing an update." + " (" + server.getDesktopName(this) + ")");
                     server.frameBufferUpdateRequest(this, ur.incremental, ur.x, ur.y, ur.w, ur.h);
-                    System.out.println("RFBSocket is done");
+                    log.fine("RFBSocket is done." + " (" + server.getDesktopName(this) + ")");
                 }
                 catch (IOException e)  // some times we have w==h==0 and it would result in a blue screen on the official VNC client.
                 {
-                    System.out.println(" !!!! RFBSocket exception: " + e);
+                    log.log(Level.WARNING, "!!! RFB protocol exception: " + " (" + server.getDesktopName(this) + ")", e);
                     // if there is nothing to encode, encode the top left pixel instead
                     if (e.getMessage().startsWith("rects.length == 0"))
                     {
@@ -531,7 +535,7 @@ public class RFBProtocolHandler implements RFBClient, Runnable
                 catch (IOException ex)
                 {
                     // In fact we're probably doubling these, since read thread will most likely also show them
-                    System.out.println("IOException on socket write, drop the client");
+                    log.log(Level.WARNING, "IOException on socket write, dropping client" + " (" + server.getDesktopName(RFBProtocolHandler.this) + ")", ex);
                     close();
                 }
             }

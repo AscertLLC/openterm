@@ -132,7 +132,6 @@ public class Hextile extends Rect
 				{
 					// Tile may be too large to be efficient, better use raw instead
 					vector.addElement( raw( pixels, scanline, currentX + x, currentY + y, tileW, tileH ) );
-					//System.err.print("!");
 				}
 			}
 		}

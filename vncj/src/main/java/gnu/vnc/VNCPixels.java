@@ -30,10 +30,13 @@ import gnu.awt.*;
 
 import java.io.*;
 import java.util.*;
+import java.util.logging.Logger;
 
 public class VNCPixels implements RFBServer, PixelsOwner
 {
 
+    private static final Logger log = Logger.getLogger(VNCPixels.class.getName());
+    
  /**
   * VNCScreenEvents to forward events to
   */
@@ -168,7 +171,7 @@ public class VNCPixels implements RFBServer, PixelsOwner
 
 	public void keyEvent( RFBClient client, boolean down, int key ) throws IOException
 	{
-//         System.err.println("DEBUG[VNCPixels] keyEvent");
+        log.finest("DEBUG[VNCPixels] keyEvent");
         if( events!=null)
         {
             events.translateKeyEvent(client, down, key);
@@ -181,7 +184,7 @@ public class VNCPixels implements RFBServer, PixelsOwner
 
 	public void pointerEvent( RFBClient client, int buttonMask, int x, int y ) throws IOException
 	{
-//         System.err.println("DEBUG[VNCPixels] pointerEvent");
+        log.finest("DEBUG[VNCPixels] pointerEvent");
         if( events!=null) {
             events.translatePointerEvent(client, buttonMask, x, y);
         }

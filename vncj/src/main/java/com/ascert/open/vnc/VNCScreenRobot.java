@@ -31,14 +31,15 @@ import java.awt.image.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 import gnu.awt.PixelsOwner;
-import gnu.logging.VLogger;
 import gnu.vnc.VNCQueue;
 
 
 public class VNCScreenRobot implements RFBServer, PixelsOwner, ScreenImageListener
 {
+    private static final Logger log = Logger.getLogger(VNCScreenRobot.class.getName());
 
     public VNCScreenRobot(Screen screen, String displayName)
     {
@@ -64,13 +65,13 @@ public class VNCScreenRobot implements RFBServer, PixelsOwner, ScreenImageListen
     //       share this server
     public void addClient(RFBClient client)
     {
-        System.out.println("*** add client: " + client);
+        log.fine("*** add client: " + client + " - " + displayName);
         clients.addClient(client);
     }
 
     public void removeClient(RFBClient client)
     {
-        System.out.println("*** remove client: " + client);
+        log.fine("*** remove client: " + client + " - " + displayName);
         clients.removeClient(client);
     }
 
@@ -121,14 +122,14 @@ public class VNCScreenRobot implements RFBServer, PixelsOwner, ScreenImageListen
     public void setPixelFormat(RFBClient client, PixelFormat pixelFormat) throws IOException
     {
         //???
-        VLogger.getLogger().log(String.format("setPixelFormat - in: %s", pixelFormat));
+        log.fine(String.format("setPixelFormat - in: %s - %s", pixelFormat, displayName));
         //TODO - Don't fully understand this part yet - seem to be altering the color model set in the pixelFormat we were given.
         //       Need to review and undersand better.
         //       For now, use of Toolkit removed to avoid headless issues.
         //pixelFormat.setDirectColorModel( (DirectColorModel) Toolkit.getDefaultToolkit().getColorModel() );
         pixelFormat.setDirectColorModel(new DirectColorModel(
             ColorSpace.getInstance(ColorSpace.CS_sRGB), 24, 0xFF0000, 0xFF00, 0xFF, 0, true, DataBuffer.TYPE_INT));
-        VLogger.getLogger().log(String.format("setPixelFormat - end: %s", pixelFormat));
+        log.fine(String.format("setPixelFormat - end: %s - %s", pixelFormat, displayName));
     }
 
     public void setEncodings(RFBClient client, int[] encodings) throws IOException
@@ -153,7 +154,7 @@ public class VNCScreenRobot implements RFBServer, PixelsOwner, ScreenImageListen
 
     public void frameBufferUpdateRequest(RFBClient client, boolean incremental, int x, int y, int w, int h) throws IOException
     {
-        VLogger.getLogger().log(String.format("update request - x: %d, y: %d, w:%d, h:%d, incremental: %b", x, y, w, h, incremental));
+        log.fine(String.format("update request - x: %d, y: %d, w:%d, h:%d, incremental: %b", x, y, w, h, incremental));
         //TODO - we don't do incrementals at this stage. An exception will be thrown if we attempt to do this
         //       with no incremental rectangles queued
         queue.frameBufferUpdate(client, false, x, y, w, h);
@@ -195,7 +196,7 @@ public class VNCScreenRobot implements RFBServer, PixelsOwner, ScreenImageListen
 
     private void updateAll()
     {
-        System.out.println("*** updateAll");
+        log.fine("*** screen robot updateAll - " + displayName);
 
         // skip if more than 2 events to process in queue i.e. 1 in process and 1 waiting. Just checking for 1 could miss an update which is 
         // nearly complete
@@ -208,9 +209,9 @@ public class VNCScreenRobot implements RFBServer, PixelsOwner, ScreenImageListen
         {
             public Object call() throws Exception
             {
-                System.out.println("*** update Scheduled");
+                log.fine("*** update scheduled - " + displayName);
                 updateScreenShot();
-                System.out.println("*** update done *** ");
+                log.fine("*** update done - " + displayName);
                 return null;
             }
 
@@ -246,7 +247,7 @@ public class VNCScreenRobot implements RFBServer, PixelsOwner, ScreenImageListen
 
         if (changed)
         {
-            System.out.println("screen changed, new pixels: " + newPixels.length);
+            log.fine("screen changed, new pixles: " + newPixels.length + " - " + displayName);
             queue.takeSnapshot(this);
         }
 
@@ -260,7 +261,7 @@ public class VNCScreenRobot implements RFBServer, PixelsOwner, ScreenImageListen
 
     private void initPixels()
     {
-        //System.out.println("component w:" + getPixelWidth() + ", h:" + getPixelHeight());
+        log.fine("initPixels:" + getPixelWidth() + ", h:" + getPixelHeight() + " - " + displayName);
         this.pixelArray = new int[getPixelWidth() * getPixelHeight()];
         imgBuffer = new BufferedImage(getPixelWidth(), getPixelHeight(), BufferedImage.TYPE_INT_ARGB);
     }

@@ -26,7 +26,6 @@ package gnu.rfb.server;
 import gnu.rfb.*;
 
 import java.io.*;
-import java.awt.event.*;
 
 public interface RFBServer
 {

@@ -26,9 +26,14 @@ package gnu.rfb;
 import java.awt.*;
 import java.awt.image.*;
 import java.io.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 
 public abstract class Rect implements Cloneable
 {
+    private static final Logger log = Logger.getLogger(Rect.class.getName());
+    
 	//
 	// Static operations
 	//
@@ -74,12 +79,12 @@ public abstract class Rect implements Cloneable
 
 	public static Rect encode( int encoding, int[] pixels, PixelFormat pixelFormat, int offsetX, int offsetY, int scanline, int x, int y, int w, int h )
 	{
-//         System.err.println("DEBUG[Rect] encode("+w+" x "+h+") pixels[0]="+pixels[0]);
-         if(w==0)
-         if(h==0)
+        log.finest("DEBUG[Rect] encode("+w+" x "+h+") pixels[0]="+pixels[0]);
+        if(w==0)
+        if(h==0)
            {
             Exception e = new Exception("w==h==0");
-            e.printStackTrace();
+            log.log(Level.WARNING, "zero size rectangle", e);
            }
 		switch( encoding )
 		{

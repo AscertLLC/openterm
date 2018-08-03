@@ -245,8 +245,7 @@ public class ClientLauncher
     
     public static class RemoteScreenServerFactory implements RFBServerFactory
     {
-        // bit silly havign a single host list, but client code expects a list
-        List<Host> hosts = new ArrayList<> ();
+        private Host host;
         private final int displayNum;
         private int connCount;
         private RFBAuthenticator authenticator;
@@ -254,7 +253,7 @@ public class ClientLauncher
         public RemoteScreenServerFactory(int displayNum, Host host)
         {
             this.displayNum = displayNum;
-            this.hosts.add(host);
+            this.host = host;
             //TODO - need to allow proper password setting, probably on a per-host basis
             authenticator = new DefaultRFBAuthenticator("password");
         }
@@ -270,10 +269,7 @@ public class ClientLauncher
             {
                 // In theory a JPanel is a lightweight component, and hence possibly renderable headless. Also doesn't need to be 
                 // made visible or receive focus for use.
-                EmulatorPanel pnlEmul8 = new EmulatorPanel(hosts, null);
-                //EmulatorFrame frmEmul8 = new EmulatorFrame(hosts);
-                //EmulatorPanel pnlEmul8 = frmEmul8.pnlEmul8;
-                //frmEmul8.setVisible(true);
+                EmulatorPanel pnlEmul8 = new EmulatorPanel(host, true);
                 retval = new RemoteTerminal(pnlEmul8, String.format("%s (%d)", getDisplayName(), connCount++));
             }
             return retval;
@@ -294,7 +290,7 @@ public class ClientLauncher
         @Override
         public String getDisplayName()
         {
-            return this.hosts.get(0).getDisplayName();
+            return host.getDisplayName();
         }
 
         @Override

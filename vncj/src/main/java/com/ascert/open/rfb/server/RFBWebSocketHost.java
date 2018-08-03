@@ -174,16 +174,16 @@ public class RFBWebSocketHost extends WebSocketServer
 	@Override
 	public void onError( WebSocket conn, Exception ex ) 
     {
-		ex.printStackTrace();
+        log.log(Level.WARNING,"WebSocket server error.", ex);
 		if( conn != null ) {
-			// some errors like port binding failed may not be assignable to a specific websocket
+            conn.close(CloseFrame.ABNORMAL_CLOSE, "VNC Server error - " + ex.getMessage());
 		}
 	}
 
 	@Override
 	public void onStart() 
     {
-		System.out.println("Server started!");
+		log.info("WebSocket server started on port: " + this.getPort());
 	}
 
     //////////////////////////////////////////////////

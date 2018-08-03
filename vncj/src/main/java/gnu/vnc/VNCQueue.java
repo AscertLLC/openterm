@@ -29,7 +29,11 @@ import gnu.awt.*;
 
 import java.io.*;
 import java.util.*;
+import java.util.logging.Logger;
 public class VNCQueue {
+    
+    private static final Logger log = Logger.getLogger(VNCQueue.class.getName());
+    
     //
     // Construction
     //
@@ -50,7 +54,7 @@ public class VNCQueue {
         Rect[] rects;
         if( snapshot==null)
         {
-        	System.out.println("None:snapshot");
+        	log.warning("Missing snapshot: " + client);
         	return;
         }
         synchronized(snapshotSemaphor){
@@ -126,7 +130,7 @@ public class VNCQueue {
     }
     
     public Rectangle[] pop( RFBClient client, Rectangle clip ) {
-        //         System.err.println("DEBUG[VNCQueue]: pop()");
+        log.finest("DEBUG[VNCQueue]: pop()");
         Vector queue = getQueue( client );
         
         // Collect rectangles in area
@@ -259,7 +263,7 @@ public class VNCQueue {
     public void takeSnapshot(PixelsOwner p){
     	if(p==null || p.getPixels()==null )
     	{
-    		System.out.println("Empty:"+p);
+    		log.warning("takeSnapshot has no pixels: " + p);
     		return;
     	}
         synchronized(this.snapshotSemaphor){
@@ -267,9 +271,7 @@ public class VNCQueue {
                 snapshot = new int[p.getPixels().length];
             }
             
-           // System.out.println("Taking a snapshot");
             System.arraycopy(p.getPixels(),0,snapshot,0,p.getPixels().length);
-           // System.out.println("Done Taking a snapshot");
             
             scanline=p.getPixelWidth();
             Enumeration enumerate = clients.elements();

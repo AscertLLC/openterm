@@ -48,7 +48,6 @@ import javax.swing.JButton;
 import javax.swing.JPanel;
 import javax.swing.JToolBar;
 import javax.swing.KeyStroke;
-import javax.swing.event.MouseInputAdapter;
 
 import com.ascert.open.term.application.OpenTermConfig;
 import com.ascert.open.term.core.AbstractTerminal.Page;
