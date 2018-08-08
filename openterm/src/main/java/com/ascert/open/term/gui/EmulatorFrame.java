@@ -57,9 +57,13 @@ public class EmulatorFrame extends JFrame
     public EmulatorFrame(List<Host> available)
     {
         super();
-        pnlEmul8 = new EmulatorPanel(available, this);
-        add(pnlEmul8);        
-        init();
+        init(new EmulatorPanel(available));
+    }
+    
+    public EmulatorFrame(EmulatorPanel pnlEmul8)
+    {
+        super();
+        init(pnlEmul8);
     }
 
 //    public void focusGained(FocusEvent evt)
@@ -76,7 +80,6 @@ public class EmulatorFrame extends JFrame
         if (evt.getID() == Event.WINDOW_DESTROY)
         {
             pnlEmul8.exit();
-            dispose();
         }
 
         super.processEvent(evt);
@@ -90,8 +93,11 @@ public class EmulatorFrame extends JFrame
      * @param available DOCUMENT ME!
      * @param parentFrame    DOCUMENT ME!
      */
-    private void init()
+    private void init(EmulatorPanel pnlEmul8)
     {
+        this.pnlEmul8 = pnlEmul8;
+        pnlEmul8.setParentFrame(this);
+        add(pnlEmul8);        
         setResizable(false);
         //setLayout(new BorderLayout());
 

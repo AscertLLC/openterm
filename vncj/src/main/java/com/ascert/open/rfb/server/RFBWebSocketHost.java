@@ -38,6 +38,7 @@ import org.java_websocket.framing.CloseFrame;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 
+import gnu.rfb.server.RFBAuthenticator;
 import gnu.rfb.server.RFBServer;
 
 /**
@@ -64,7 +65,7 @@ public class RFBWebSocketHost extends WebSocketServer
     // INSTANCE VARIABLES
     //////////////////////////////////////////////////
 
-    public Map<String, RFBServerFactory> factoryMap = new ConcurrentHashMap<> ();
+    private Map<String, ProtocolConnection> protConn = new ConcurrentHashMap<> ();
     
     //////////////////////////////////////////////////
     // CONSTRUCTORS
@@ -97,9 +98,29 @@ public class RFBWebSocketHost extends WebSocketServer
     
     public void addFactory(String path, RFBServerFactory factory)
     {
-        factoryMap.putIfAbsent(path, factory);
+        protConn.putIfAbsent(path, new ProtocolConnection()
+        {
+            @Override
+            public ProtocolHandler getProtocolHandler(boolean newConnection) throws Exception
+            {
+                return new ProtocolHandler(factory.getInstance(newConnection), factory.getAuthenticator());
+            }
+        });
     }
 
+    
+    public void addServer(String path, RFBServer server, RFBAuthenticator auth)
+    {
+        protConn.putIfAbsent(path, new ProtocolConnection()
+        {
+            @Override
+            public ProtocolHandler getProtocolHandler(boolean newConnection) throws Exception
+            {
+                return new ProtocolHandler(server, auth);
+            }
+        });
+    }
+    
     //////////////////////////////////////////////////
     // INTERFACE METHODS - WebSocketServer
     //////////////////////////////////////////////////
@@ -110,19 +131,20 @@ public class RFBWebSocketHost extends WebSocketServer
 	public void onOpen( WebSocket conn, ClientHandshake handshake ) 
     {
         String path = handshake.getResourceDescriptor();
-        RFBServerFactory factory = factoryMap.get(path);
+        ProtocolConnection prot = protConn.get(path);
         
-        if (factory == null)
+        if (prot == null)
         {
             log.warning(String.format("Connection received for unknown path: %s (from: %s)", path, conn.getRemoteSocketAddress().getAddress().getHostAddress()));
             conn.close(CloseFrame.REFUSE, "Path not recgnised");
             return;
         }
-
+        
         try
         {
-            ProtocolStream prot = new ProtocolStream(factory, conn);
-            conn.setAttachment(prot);
+            ProtocolHandler handler = prot.getProtocolHandler(true);
+            handler.connect(conn);
+            conn.setAttachment(handler);
         }
         catch (Exception ex)
         {
@@ -136,7 +158,7 @@ public class RFBWebSocketHost extends WebSocketServer
     {
         try
         {
-            ProtocolStream prot = conn.<ProtocolStream>getAttachment();
+            ProtocolHandler prot = conn.<ProtocolHandler>getAttachment();
             if (prot != null)
             {
                 prot.shutdown();
@@ -160,7 +182,7 @@ public class RFBWebSocketHost extends WebSocketServer
     {
         try
         {
-            ProtocolStream prot = conn.<ProtocolStream>getAttachment();
+            ProtocolHandler prot = conn.<ProtocolHandler>getAttachment();
             prot.clientDataIn(message.array());
         }
         catch (IOException ex)
@@ -175,7 +197,8 @@ public class RFBWebSocketHost extends WebSocketServer
 	public void onError( WebSocket conn, Exception ex ) 
     {
         log.log(Level.WARNING,"WebSocket server error.", ex);
-		if( conn != null ) {
+		if( conn != null ) 
+        {
             conn.close(CloseFrame.ABNORMAL_CLOSE, "VNC Server error - " + ex.getMessage());
 		}
 	}
@@ -198,10 +221,17 @@ public class RFBWebSocketHost extends WebSocketServer
     // STATIC INNER CLASSES
     //////////////////////////////////////////////////
 
-    public class ProtocolStream extends OutputStream
+    public interface ProtocolConnection
+    {
+        public ProtocolHandler getProtocolHandler(boolean newConnection) throws Exception;
+    }
+    
+    public class ProtocolHandler extends OutputStream implements Cloneable 
     {
         WebSocket conn;
         RFBServer server;
+        RFBAuthenticator auth;
+        
         RFBProtocolHandler handler;
         ByteArrayOutputStream toWebSocket = new ByteArrayOutputStream(2048);
         
@@ -212,16 +242,19 @@ public class RFBWebSocketHost extends WebSocketServer
         PipedOutputStream fromWebSocket = new PipedOutputStream();
         PipedInputStream toHandler = new PipedInputStream();
         
-        public ProtocolStream(RFBServerFactory factory, WebSocket conn) throws Exception 
+        public ProtocolHandler(RFBServer server, RFBAuthenticator auth)
         {
-            this.conn = conn;
-            
-            server = factory.getInstance(true);
-            toHandler.connect(fromWebSocket);
-            
-            handler = new RFBProtocolHandler(toHandler, this, server, factory.getAuthenticator());
+            this.server = server;
+            this.auth = auth;
         }
 
+        public void connect(WebSocket conn) throws Exception 
+        {
+            this.conn = conn;
+            toHandler.connect(fromWebSocket);
+            handler = new RFBProtocolHandler(toHandler, this, server, auth);
+        }
+        
         public void shutdown() throws IOException
         {
             //TODO - close stream. Need to check this is all that is needed and the protocol handler will detect
@@ -273,6 +306,12 @@ public class RFBWebSocketHost extends WebSocketServer
         public void close()
         {
             conn.close();
+        }
+        
+        public ProtocolHandler clone() throws CloneNotSupportedException
+        {
+            return (ProtocolHandler) super.clone();
+            
         }
     }
     

@@ -70,7 +70,7 @@ public class EmulatorPanel extends JPanel
         "Black", "White", "Green", "Red", "Blue", "Orange", "Turquoise", "Dark Blue", "Light Green"
     };
     
-    private JFrame parentFrame;
+    protected JFrame parentFrame;
     private JMenuBar menubar;
     private JMenu connect;
     private JToolBar toolbar;
@@ -92,7 +92,7 @@ public class EmulatorPanel extends JPanel
      */
     public EmulatorPanel()
     {
-        this(new ArrayList<Host> (), null);
+        this(new ArrayList<Host> ());
     }
 
     /** 
@@ -110,11 +110,15 @@ public class EmulatorPanel extends JPanel
     }
     
     
-    public EmulatorPanel(List<Host> hosts, JFrame parent)
+    public EmulatorPanel(List<Host> hosts)
     {
         super();
-        this.available.addAll(hosts);
-        this.parentFrame = parentFrame;
+        
+        if (hosts != null)
+        {
+            this.available.addAll(hosts);
+        }
+        
         init();
     }
 
@@ -149,6 +153,24 @@ public class EmulatorPanel extends JPanel
         refreshInteractionHandling();
     }
     
+    
+    /**
+     * @return the parentFrame
+     */
+    public JFrame getParentFrame()
+    {
+        return parentFrame;
+    }
+
+    /**
+     * @param parentFrame the parentFrame to set
+     */
+    public void setParentFrame(JFrame parentFrame)
+    {
+        this.parentFrame = parentFrame;
+    }
+
+    
     public void actionPerformed(ActionEvent evt)
     {
         log.fine("dispatching action event");
@@ -180,6 +202,11 @@ public class EmulatorPanel extends JPanel
                 term.disconnect();
             }
             System.exit(0);
+        }
+        
+        if (getParentFrame() != null)
+        {
+            getParentFrame().dispose();
         }
     }
 
@@ -635,17 +662,17 @@ public class EmulatorPanel extends JPanel
     // Bit brain dead - these methods will update any parent JFrame
     public void setTitle(String title)
     {
-        if (parentFrame != null)
+        if (getParentFrame() != null)
         {
-            parentFrame.setTitle(title);
+            getParentFrame().setTitle(title);
         }
     }
     
     public void pack()
     {
-        if (parentFrame != null)
+        if (getParentFrame() != null)
         {
-            parentFrame.pack();
+            getParentFrame().pack();
         }
     }
     
@@ -653,4 +680,5 @@ public class EmulatorPanel extends JPanel
     {
         return rhp;
     }
+
 }
