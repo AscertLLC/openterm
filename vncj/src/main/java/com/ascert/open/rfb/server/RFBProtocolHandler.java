@@ -50,6 +50,7 @@ public class RFBProtocolHandler implements RFBClient, Runnable
     private PixelFormat pixelFormat = null;
     private String protocolVersionMsg = "";
     private boolean shared = true;
+    private boolean initial = true;
     private int[] encodings = new int[0];
     private int preferredEncoding = rfb.EncodingHextile;
     private boolean isRunning = false;
@@ -158,6 +159,7 @@ public class RFBProtocolHandler implements RFBClient, Runnable
 
     public synchronized void writeSetColourMapEntries(int firstColour, Colour colours[]) throws IOException
     {
+        log.fine("writeSetColourMapEntries - " + this);
         writeServerMessageType(rfb.SetColourMapEntries);
         output.writeByte(0); // padding
         output.writeShort(firstColour);
@@ -173,11 +175,13 @@ public class RFBProtocolHandler implements RFBClient, Runnable
 
     public synchronized void writeBell() throws IOException
     {
+        log.fine("writeBell - " + this);
         writeServerMessageType(rfb.Bell);
     }
 
     public synchronized void writeServerCutText(String text) throws IOException
     {
+        log.fine("writeServerCutText - " + this);
         writeServerMessageType(rfb.ServerCutText);
         output.writeByte(0);  // padding
         output.writeShort(0); // padding
@@ -190,6 +194,8 @@ public class RFBProtocolHandler implements RFBClient, Runnable
     // Warning - most clients don't seem to support Keep Alive messages
     public synchronized void writeKeepAlive() throws IOException
     {
+        log.fine("writeKeepAlive - " + this);
+        
         if (keepAliveSupported && (System.currentTimeMillis() - this.lastServerMsgTs) > this.keepAliveInterval)
         {
             writeServerMessageType(rfb.KeepAlive);
@@ -237,25 +243,18 @@ public class RFBProtocolHandler implements RFBClient, Runnable
         isRunning = true;
         try
         {
-            log.finest("DEBUG[RFBProtocolHandler] run() calling writeProtocolVersionMsg()");
             // Handshaking
             writeProtocolVersionMsg();
-            log.finest("DEBUG[RFBProtocolHandler] run() calling readProtocolVersionMsg()");
             readProtocolVersionMsg();
-            log.finest("DEBUG[RFBProtocolHandler] run() calling writeAuthScheme()");
             //if(((DefaultRFBAuthenticator)authenticator).authenticate(input,output)==false){
             if (authenticator.authenticate(input, output, this) == false)
             {
                 log.warning("Failed authentiation attempt for server. (" + server.getDesktopName(this) + ")");
                 return;
             }
-            log.finest("DEBUG[RFBProtocolHandler] run() calling readClientInit()");
             readClientInit();
-            log.finest("DEBUG[RFBProtocolHandler] run() calling initServer()");
             initServer();
-            log.finest("DEBUG[RFBProtocolHandler] run() calling writeServerInit()");
             writeServerInit();
-            log.finest("DEBUG[RFBProtocolHandler] run() message loop");
 
             // RFBClient read message loop
             while (isRunning)
@@ -309,6 +308,7 @@ public class RFBProtocolHandler implements RFBClient, Runnable
     //       was not really that helpful or correct
     private void initServer() throws IOException
     {
+        log.fine("initServer - " + this);
         // We may already have a shared server
         //TODO - check server allows sharing
         if (shared)
@@ -329,6 +329,7 @@ public class RFBProtocolHandler implements RFBClient, Runnable
     // Handshaking
     private synchronized void writeProtocolVersionMsg() throws IOException
     {
+        log.fine("writeProtocolVersionMsg - " + rfb.ProtocolVersionMsg + " - " + this);
         output.writeBytes(rfb.ProtocolVersionMsg);
         output.flush();
     }
@@ -338,26 +339,24 @@ public class RFBProtocolHandler implements RFBClient, Runnable
         byte[] b = new byte[12];
         input.readFully(b);
         protocolVersionMsg = new String(b);
+        log.fine("readProtocolVersionMsg - " + protocolVersionMsg + " - " + this);
     }
 
     private synchronized void readClientInit() throws IOException
     {
         shared = input.readUnsignedByte() == 1;
-        log.fine("Client option - shared: " + shared + " (" + server.getDesktopName(this) + ")");
+        log.fine("readClientInit - shared: " + shared + " (" + server.getDesktopName(this) + ") - " + this);
     }
 
     private synchronized void writeServerInit() throws IOException
     {
-        log.finest("DEBUG[RFBProtocolHandler] writeServerInit() writing FB-dimension");
+        log.finest("writeServerInit() - " + this);
         output.writeShort(server.getFrameBufferWidth(this));
         output.writeShort(server.getFrameBufferHeight(this));
-        log.finest("DEBUG[RFBProtocolHandler] writeServerInit() writing pixel-format");
         server.getPreferredPixelFormat(this).writeData(output);
-        log.finest("DEBUG[RFBProtocolHandler] writeServerInit() writing padding");
         output.writeByte(0); // padding
         output.writeByte(0); // padding
         output.writeByte(0); // padding
-        log.finest("DEBUG[RFBProtocolHandler] writeServerInit() writing desktopname");
         String desktopName = server.getDesktopName(this);
         output.writeInt(desktopName.length());
         output.writeBytes(desktopName);
@@ -381,6 +380,7 @@ public class RFBProtocolHandler implements RFBClient, Runnable
     // Messages from client to server
     private synchronized void readSetPixelFormat() throws IOException
     {
+        log.fine("readSetPixelFormat - " + this);
         input.readUnsignedByte();  // padding
         input.readUnsignedShort(); // padding
         pixelFormat = new PixelFormat(input);
@@ -393,6 +393,7 @@ public class RFBProtocolHandler implements RFBClient, Runnable
 
     private synchronized void readFixColourMapEntries() throws IOException
     {
+        log.fine("readFixColourMapEntries - " + this);
         input.readUnsignedByte(); // padding
         int firstColour = input.readUnsignedShort();
         int nColours = input.readUnsignedShort();
@@ -418,13 +419,14 @@ public class RFBProtocolHandler implements RFBClient, Runnable
 
         preferredEncoding = Rect.bestEncoding(encodings);
         
-        log.fine("preferredEncoding: " + preferredEncoding + " (" + server.getDesktopName(this) + ")");
+        log.fine("preferredEncoding: " + preferredEncoding + " - " + this);
         // Delegate to server
         server.setEncodings(this, encodings);
     }
 
     private synchronized void readFrameBufferUpdateRequest() throws IOException
     {
+        log.fine("readFrameBufferUpdateRequest - " + this);
         boolean incremental = (input.readUnsignedByte() == 1);
         int x = input.readUnsignedShort();
         int y = input.readUnsignedShort();
@@ -447,6 +449,13 @@ public class RFBProtocolHandler implements RFBClient, Runnable
                 updateQueue.add(r);
             }
         }
+        
+        // Bit of a kludge, but makes sure we paint initial FB
+        if (initial)
+        {
+            initial = false;
+            updateAvailable();
+        }
     }
 
     private void doFrameBufferUpdate() throws IOException
@@ -461,9 +470,9 @@ public class RFBProtocolHandler implements RFBClient, Runnable
                 // Delegate to server
                 try
                 {
-                    log.fine("RFBSocket is doing an update." + " (" + server.getDesktopName(this) + ")");
+                    log.fine("RFBSocket is doing an update." + " (" + server.getDesktopName(this) + ") - " + this);
                     server.frameBufferUpdateRequest(this, ur.incremental, ur.x, ur.y, ur.w, ur.h);
-                    log.fine("RFBSocket is done." + " (" + server.getDesktopName(this) + ")");
+                    log.fine("RFBSocket is done." + " (" + server.getDesktopName(this) + ") - " + this);
                 }
                 catch (IOException e)  // some times we have w==h==0 and it would result in a blue screen on the official VNC client.
                 {
@@ -485,6 +494,8 @@ public class RFBProtocolHandler implements RFBClient, Runnable
 
     private synchronized void readKeyEvent() throws IOException
     {
+        log.finest("readKeyEvent - " + this);
+        
         boolean down = (input.readUnsignedByte() == 1);
         input.readUnsignedShort(); // padding
         int key = input.readInt();
@@ -495,6 +506,8 @@ public class RFBProtocolHandler implements RFBClient, Runnable
 
     private synchronized void readPointerEvent() throws IOException
     {
+        log.finest("readPointerEvent - " + this);
+        
         int buttonMask = input.readUnsignedByte();
         int x = input.readUnsignedShort();
         int y = input.readUnsignedShort();
@@ -505,6 +518,7 @@ public class RFBProtocolHandler implements RFBClient, Runnable
 
     private synchronized void readClientCutText() throws IOException
     {
+        log.fine("readClientCutText - " + this);
         input.readUnsignedByte();  // padding
         input.readUnsignedShort(); // padding
         int length = input.readInt();
@@ -517,7 +531,7 @@ public class RFBProtocolHandler implements RFBClient, Runnable
     }
     
 //TODO - possible actually we might want to be able to get some external client address identifier
-//       this class is no longer socket specific though, to it'd need remodelling
+//       this class is no longer socket specific though, so would need remodelling
 //    public InetAddress getInetAddress(){
 //        return(socket.getInetAddress());
 //    }

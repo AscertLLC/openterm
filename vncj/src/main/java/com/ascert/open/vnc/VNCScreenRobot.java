@@ -50,9 +50,8 @@ public class VNCScreenRobot implements RFBServer, PixelsOwner, ScreenImageListen
         queue = new VNCQueue(clients);
 
         initPixels();
-
         updateScreenShot();
-        queue.takeSnapshot(this);
+        //queue.takeSnapshot(this);
 
         screen.addScreenListener(this);
     }
@@ -227,27 +226,24 @@ public class VNCScreenRobot implements RFBServer, PixelsOwner, ScreenImageListen
     {
         boolean changed = false;
         int[] oldPixels = pixelArray;
-        int[] newPixels;
 
         // Messy, but change detection needs it
         synchronized (this)
         {
-            newPixels = updateImage();
+            pixelArray = updateImage();
 
-            for (int ix = 0; ix < newPixels.length && !changed; ix++)
+            for (int ix = 0; ix < pixelArray.length && !changed; ix++)
             {
-                if (newPixels[ix] != oldPixels[ix])
+                if (pixelArray[ix] != oldPixels[ix])
                 {
                     changed = true;
                 }
             }
-
-            pixelArray = newPixels;
         }
 
         if (changed)
         {
-            log.fine("screen changed, new pixles: " + newPixels.length + " - " + displayName);
+            log.fine("screen changed, new pixels - " + displayName);
             queue.takeSnapshot(this);
         }
 

@@ -53,7 +53,7 @@ import com.ascert.open.rfb.server.RFBSocketHost;
 import gnu.rfb.server.RFBServer;
 
 import com.ascert.open.rfb.server.RFBServerFactory;
-import com.ascert.open.rfb.server.RFBWebSocketHost;
+import com.ascert.open.rfb.server.RFBStandaloneWebSocketHost;
 
 import com.ascert.open.vnc.VNCScreenRobot;
     
@@ -180,7 +180,7 @@ public class ClientLauncher
     
     private static List<RFBServerFactory> rfbFactories = new ArrayList<> ();
     private static List<RFBSocketHost> rfbHosts = new ArrayList<> ();
-    private static RFBWebSocketHost hst;
+    private static RFBStandaloneWebSocketHost hst;
     
     /**
      * Starts a simple emulator server
@@ -230,7 +230,7 @@ public class ClientLauncher
     {
         log.fine(String.format(" websocket server port: %d, host count: %d", port, rfbFactories.size()));
 
-        hst = new RFBWebSocketHost(port);
+        hst = new RFBStandaloneWebSocketHost(port);
         
         for (int ix = 0; ix < rfbFactories.size(); ix++)
         {

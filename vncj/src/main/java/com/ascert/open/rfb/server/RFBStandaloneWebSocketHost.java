@@ -18,12 +18,7 @@
  */
 package com.ascert.open.rfb.server;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
@@ -33,7 +28,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.java_websocket.WebSocket;
-import org.java_websocket.exceptions.WebsocketNotConnectedException;
 import org.java_websocket.framing.CloseFrame;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
@@ -48,14 +42,14 @@ import gnu.rfb.server.RFBServer;
  * @history
  *      02-Aug-2018    rhw        Created
  */
-public class RFBWebSocketHost extends WebSocketServer
+public class RFBStandaloneWebSocketHost extends WebSocketServer
 {
 
     //////////////////////////////////////////////////
     // STATIC VARIABLES
     //////////////////////////////////////////////////
 
-    private static final Logger log = Logger.getLogger(RFBWebSocketHost.class.getName());
+    private static final Logger log = Logger.getLogger(RFBStandaloneWebSocketHost.class.getName());
 
     //////////////////////////////////////////////////
     // STATIC PUBLIC METHODS
@@ -71,19 +65,19 @@ public class RFBWebSocketHost extends WebSocketServer
     // CONSTRUCTORS
     //////////////////////////////////////////////////
 
-	public RFBWebSocketHost( ) throws UnknownHostException 
+	public RFBStandaloneWebSocketHost( ) throws UnknownHostException 
     {
         // technically speaking, VNC port 5800 is for serving clients etc. But it's a convenient
         // standard to re-use
 		super( new InetSocketAddress( 5800 ) );
 	}
     
-	public RFBWebSocketHost( int port ) throws UnknownHostException 
+	public RFBStandaloneWebSocketHost( int port ) throws UnknownHostException 
     {
 		super( new InetSocketAddress( port ) );
 	}
 
-	public RFBWebSocketHost( InetSocketAddress address ) 
+	public RFBStandaloneWebSocketHost( InetSocketAddress address ) 
     {
         super( address );
     }
@@ -101,9 +95,9 @@ public class RFBWebSocketHost extends WebSocketServer
         protConn.putIfAbsent(path, new ProtocolConnection()
         {
             @Override
-            public ProtocolHandler getProtocolHandler(boolean newConnection) throws Exception
+            public RFBProtocolAdapter getProtocolHandler(boolean newConnection) throws Exception
             {
-                return new ProtocolHandler(factory.getInstance(newConnection), factory.getAuthenticator());
+                return new RFBProtocolAdapter(factory.getInstance(newConnection), factory.getAuthenticator());
             }
         });
     }
@@ -114,9 +108,9 @@ public class RFBWebSocketHost extends WebSocketServer
         protConn.putIfAbsent(path, new ProtocolConnection()
         {
             @Override
-            public ProtocolHandler getProtocolHandler(boolean newConnection) throws Exception
+            public RFBProtocolAdapter getProtocolHandler(boolean newConnection) throws Exception
             {
-                return new ProtocolHandler(server, auth);
+                return new RFBProtocolAdapter(server, auth);
             }
         });
     }
@@ -136,14 +130,14 @@ public class RFBWebSocketHost extends WebSocketServer
         if (prot == null)
         {
             log.warning(String.format("Connection received for unknown path: %s (from: %s)", path, conn.getRemoteSocketAddress().getAddress().getHostAddress()));
-            conn.close(CloseFrame.REFUSE, "Path not recgnised");
+            conn.close(CloseFrame.REFUSE, "Path not recognised");
             return;
         }
         
         try
         {
-            ProtocolHandler handler = prot.getProtocolHandler(true);
-            handler.connect(conn);
+            RFBProtocolAdapter handler = prot.getProtocolHandler(true);
+            handler.connect(new StandaloneWebSocketAdapter(conn));
             conn.setAttachment(handler);
         }
         catch (Exception ex)
@@ -158,7 +152,7 @@ public class RFBWebSocketHost extends WebSocketServer
     {
         try
         {
-            ProtocolHandler prot = conn.<ProtocolHandler>getAttachment();
+            RFBProtocolAdapter prot = conn.<RFBProtocolAdapter>getAttachment();
             if (prot != null)
             {
                 prot.shutdown();
@@ -182,7 +176,7 @@ public class RFBWebSocketHost extends WebSocketServer
     {
         try
         {
-            ProtocolHandler prot = conn.<ProtocolHandler>getAttachment();
+            RFBProtocolAdapter prot = conn.<RFBProtocolAdapter>getAttachment();
             prot.clientDataIn(message.array());
         }
         catch (IOException ex)
@@ -223,100 +217,39 @@ public class RFBWebSocketHost extends WebSocketServer
 
     public interface ProtocolConnection
     {
-        public ProtocolHandler getProtocolHandler(boolean newConnection) throws Exception;
+        public RFBProtocolAdapter getProtocolHandler(boolean newConnection) throws Exception;
     }
     
-    public class ProtocolHandler extends OutputStream implements Cloneable 
+    
+    public static class StandaloneWebSocketAdapter
+        implements WebSocketProvider
     {
-        WebSocket conn;
-        RFBServer server;
-        RFBAuthenticator auth;
+        private final WebSocket conn;
         
-        RFBProtocolHandler handler;
-        ByteArrayOutputStream toWebSocket = new ByteArrayOutputStream(2048);
-        
-        // Possibly overkill and thread heavy, but using streams disconnects thread handling from web server
-        // and also allows consistent/common model for handling with RFBSocketHost. Note that the
-        
-        // Data in from client
-        PipedOutputStream fromWebSocket = new PipedOutputStream();
-        PipedInputStream toHandler = new PipedInputStream();
-        
-        public ProtocolHandler(RFBServer server, RFBAuthenticator auth)
-        {
-            this.server = server;
-            this.auth = auth;
-        }
-
-        public void connect(WebSocket conn) throws Exception 
+        public StandaloneWebSocketAdapter(WebSocket conn)
         {
             this.conn = conn;
-            toHandler.connect(fromWebSocket);
-            handler = new RFBProtocolHandler(toHandler, this, server, auth);
         }
         
-        public void shutdown() throws IOException
+        @Override
+        public void send(byte[] byt) throws Exception
         {
-            //TODO - close stream. Need to check this is all that is needed and the protocol handler will detect
-            //       the close and disconect/shutdown the client
-            fromWebSocket.close();
-            toHandler.close();
-            toWebSocket.close();
+            conn.send(byt);
         }
 
-        public void clientDataIn(byte[] array)  throws IOException
+        @Override
+        public void send(String txt) throws Exception
         {
-            fromWebSocket.write(array);
-            fromWebSocket.flush();
+            conn.send(txt);
         }
 
-        //////////////////////////////////////////////////
-        // INTERFACE METHODS - OutputStream
-        //////////////////////////////////////////////////
-        
-        public synchronized void write(int b) throws IOException
-        {
-            toWebSocket.write(b);
-        }
-
-        public synchronized void flush()
-        {
-            try
-            {
-                conn.send(toWebSocket.toByteArray());
-                toWebSocket.reset();
-            }
-            catch (WebsocketNotConnectedException wex)
-            {
-                // seems to happen around close - diag included if ever needed
-                log.log(Level.FINEST, "protocol stream flush", wex);
-            }
-        }
-
-        public synchronized void write(byte[] b) throws IOException
-        {
-            toWebSocket.write(b);
-        }
-            
-        public synchronized void write(byte[] b, int off, int len) throws IOException
-        {
-            toWebSocket.write(b, off, len);
-        }
-
+        @Override
         public void close()
         {
             conn.close();
         }
         
-        public ProtocolHandler clone() throws CloneNotSupportedException
-        {
-            return (ProtocolHandler) super.clone();
-            
-        }
     }
     
-    //////////////////////////////////////////////////
-    // NON-STATIC INNER CLASSES
-    //////////////////////////////////////////////////
 
 }
