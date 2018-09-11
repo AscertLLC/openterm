@@ -558,7 +558,6 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
                 frame.setComposite(AC_OPAQUE);            
                 paintStatusLine();
                 
-                //TODO - test out how much changes
                 checkChanges();
                 fireScreenListeners();                
             }
@@ -570,53 +569,6 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
         }
     }
 
-    private int[] lastFrame = new int[0];
-    
-    private synchronized void checkChanges()
-    {
-//        int imgSize = frameBuff.getWidth() * frameBuff.getHeight();
-//    
-//        if (imgSize != lastFrame.length)
-//        {
-//            lastFrame = new int[imgSize];
-//        }
-        
-        int[] newFrame = frameBuff.getRGB(0, 0, frameBuff.getWidth(), frameBuff.getHeight(), null, 0, 
-                                          // last param very confusing, scanline stride is width of image i.e. start of next row:
-                                          // not always the same apparently!
-                                          frameBuff.getWidth()); 
-        
-        int changedBytes = newFrame.length;
-        int blankBytes = 0;
-        
-        if (lastFrame.length == newFrame.length)
-        {
-            for (int ix = 0; ix < newFrame.length; ix++)
-            {
-                if (newFrame[ix] == lastFrame[ix])
-                {
-                    changedBytes--;
-                }
-                
-                if (newFrame[ix] == currentBGColor.getRGB())
-                {
-                    blankBytes++;
-                }
-                
-            }
-        }
-        
-        System.out.println(String.format("*** newFrame size: %d, changed bytes: %d, background bytes: %d", 
-                                         newFrame.length * Integer.BYTES,
-                                         changedBytes * Integer.BYTES,
-                                         blankBytes * Integer.BYTES
-                            ));
-        
-        
-        lastFrame = newFrame;
-        
-    }
-    
     public void run()
     {
         // blinked is a toggle.  When true, the affected text is 'off'...
@@ -705,17 +657,6 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
         currentFGColor = getColor(c);
         refresh();
     }
-
-    /**
-     * Sets current status message and calls components <code>repaint</code> method to make the new status message visible.
-     *
-     * @param statusMessage DOCUMENT ME!
-     */
-//    public void setStatus(String statusMessage)
-//    {
-//        this.statusMessage = statusMessage;
-//        refresh();
-//    }
 
     public void setWindowMessage(int msg)
     {
@@ -1002,11 +943,12 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
             switch (evt.getID())
             {
                 case KeyEvent.KEY_TYPED:
-                        kHandler.getKeyListener().keyTyped(evt);
-                        break;
+                    kHandler.getKeyListener().keyTyped(evt);
+                    break;
 
                 case KeyEvent.KEY_PRESSED:
                     kHandler.doKeyAction(KeyStroke.getKeyStroke(evt.getKeyCode(),evt.getModifiers()));
+                    break;
             }
         }
         //TODO - beep??
@@ -1120,5 +1062,49 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
     @Override
     public void mouseMoved(MouseEvent e) {}
 
+    //////////////////////////////////////////////////
+    // PRIVATE METHODS
+    //////////////////////////////////////////////////
 
+    private int[] lastFrame = new int[0];
+    
+    private synchronized void checkChanges()
+    {
+        // This is only really diagnostic code, so skip if not logging
+        if (!log.isLoggable(Level.FINEST))  { return; }
+
+        int[] newFrame = frameBuff.getRGB(0, 0, frameBuff.getWidth(), frameBuff.getHeight(), null, 0, 
+                                          // last param very confusing, scanline stride is width of image i.e. start of next row:
+                                          // not always the same apparently!
+                                          frameBuff.getWidth()); 
+        
+        int changedBytes = newFrame.length;
+        int blankBytes = 0;
+        
+        if (lastFrame.length == newFrame.length)
+        {
+            for (int ix = 0; ix < newFrame.length; ix++)
+            {
+                if (newFrame[ix] == lastFrame[ix])
+                {
+                    changedBytes--;
+                }
+                
+                if (newFrame[ix] == currentBGColor.getRGB())
+                {
+                    blankBytes++;
+                }
+            }
+        }
+        
+        log.finest(String.format("*** newFrame size: %d, changed bytes: %d, background bytes: %d", 
+                                         newFrame.length * Integer.BYTES,
+                                         changedBytes * Integer.BYTES,
+                                         blankBytes * Integer.BYTES
+                            ));        
+        
+        lastFrame = newFrame;
+    }
+    
+    
 }
