@@ -19,6 +19,8 @@
 package com.ascert.open.term.core;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Enumeration;
@@ -630,6 +632,17 @@ public abstract class AbstractTerminal
         initTerm();
         client.status(TnAction.CONNECTING);
         tn.connect(host.getHostName(), host.getPort());
+        log.fine("connecting complete");
+        client.refresh();
+    }
+    
+    public void connect(InputStream is, OutputStream os)
+    {
+        log.fine("connecting (direct)");
+        //Wipe down any possible old remnants from previous session
+        initTerm();
+        client.status(TnAction.CONNECTING);
+        tn.connect(is, os);
         log.fine("connecting complete");
         client.refresh();
     }

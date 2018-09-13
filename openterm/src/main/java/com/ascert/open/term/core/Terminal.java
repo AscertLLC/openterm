@@ -21,6 +21,8 @@ package com.ascert.open.term.core;
 import java.awt.Color;
 import java.awt.Image;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.UnknownHostException;
 import java.util.Vector;
 
@@ -235,9 +237,8 @@ public interface Terminal
 
     void connect() throws IOException, UnknownHostException;
     
-    //TODO - should probably abstract out some session handling object, with listener updates
-    //       for objects needing status
-
+    void connect(InputStream is, OutputStream os) throws IOException, UnknownHostException;
+    
     /**
      * Disconnects this RW3270 object from the current Session.
      */

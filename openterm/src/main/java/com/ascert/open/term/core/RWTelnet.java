@@ -266,22 +266,24 @@ public class RWTelnet implements Runnable
             SSLSocketFactory sslFact = (SSLSocketFactory) SSLSocketFactory.getDefault();
             tnSocketSSL = (SSLSocket) sslFact.createSocket();
             tnSocketSSL.connect(new InetSocketAddress(host, port), connectionTimeout * 1000);
-
-            is = tnSocketSSL.getInputStream();
-            os = tnSocketSSL.getOutputStream();
+            connect(tnSocketSSL.getInputStream(), tnSocketSSL.getOutputStream());
         }
         else
         {
             tnSocket = new Socket();
             tnSocket.connect(new InetSocketAddress(host, port), connectionTimeout * 1000);
-
-            is = tnSocket.getInputStream();
-            os = tnSocket.getOutputStream();
+            connect(tnSocket.getInputStream(), tnSocket.getOutputStream());
         }
+    }
+
+    protected void connect(InputStream is, OutputStream os)
+    {
+        this.is = is;
+        this.os = os;
         sessionThread = new Thread(this);
         sessionThread.start();
     }
-
+    
     /**
      * Disconnects the current session.
      */
@@ -325,9 +327,14 @@ public class RWTelnet implements Runnable
         {
             return tnSocket.isConnected();
         }
-        if (tnSocketSSL != null)
+        else if (tnSocketSSL != null)
         {
             return tnSocketSSL.isConnected();
+        }
+        else if (is != null && os != null)
+        {
+            // we have streams, so must be a direct connection
+            return true;
         }
 
         return false;
