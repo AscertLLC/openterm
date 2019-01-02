@@ -339,8 +339,7 @@ public class OhioScreenWrapper implements OhioScreen
             buf.append("end: [" + getEnd() + "], ");
             buf.append("len: [" + getLength() + "], ");
             buf.append("val: [" + getString() + "], ");
-            // Mask out top 2 bits which just make it printable char
-            buf.append("attr: [0x" + Integer.toHexString(getAttribute() & 0x3f) + " - ");
+            buf.append("attr: [0x" + Integer.toHexString(getAttribute()) + " - ");
 
             if (isModified())
             {
