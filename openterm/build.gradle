@@ -1,12 +1,64 @@
+description = 'open.term 3270'
+version = '1.5.3'
+archivesBaseName = 'openterm'
+
 dependencies {
     compile project(":vncj")
 }
+
+jar {
+    manifest {
+        attributes( 'Implementation-Title': project.description,
+                    'Implementation-Version': project.version,
+                    'Main-Class': 'com.ascert.open.term.application.ClientLauncher', 
+                    )
+    }
+}    
 
 task execute(type:JavaExec) {
     main = "com.ascert.open.term.application.ClientLauncher"
     classpath = sourceSets.main.runtimeClasspath
 
     systemProperties System.getProperties();
-    //println systemProperties
 }
 
+uploadArchives {
+  repositories {
+    mavenDeployer {
+      pom.project {
+        name project.description
+        packaging 'jar'
+        // optionally artifactId can be defined here 
+        description 'An open source emulator supporting 3270 and potentially later 5250 terminal types.'
+        url 'https://github.com/AscertLLC/openterm'
+
+        scm {
+          connection 'https://github.com/AscertLLC/openterm.git'
+          developerConnection 'scm:git:ssh://git@github.com/AscertLLC/openterm.git'
+          url 'https://github.com/AscertLLC/openterm'
+        }
+
+        licenses {
+          license {
+            name "${gpl_name}"
+            url "${gpl_url}"
+          }
+        }
+
+        developers {
+          developer {
+            id = "${dev_id}"
+            name = "${dev_name}"
+            email = "${dev_email}"
+            organization = "${dev_organization}"
+            organizationUrl = "${dev_organizationUrl}"
+          }
+        }
+      }
+    }
+  }
+}
+
+                
+                
+                

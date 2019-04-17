@@ -28,7 +28,7 @@ import com.ascert.open.ohio.Ohio;
  *
  * @version 1,0 22-Jun-2017
  * @author srm
- * @history 22-Jun-2017 srm Created
+
  */
 public interface InputCharHandler
 {

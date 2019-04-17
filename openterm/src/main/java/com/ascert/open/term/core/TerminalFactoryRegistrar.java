@@ -29,7 +29,7 @@ import com.ascert.open.term.i3270.Term3270Factory;
  *
  * @version 1,0 02-Jun-2017
  * @author srm
- * @history 02-Jun-2017 srm Created
+
  */
 public class TerminalFactoryRegistrar
 {

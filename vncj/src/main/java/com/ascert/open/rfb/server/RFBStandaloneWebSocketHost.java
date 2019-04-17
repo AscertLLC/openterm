@@ -39,7 +39,7 @@ import gnu.rfb.server.RFBServer;
  *
  * @version 1,0 02-Aug-2018
  * @author srm
- * @history
+
  *      02-Aug-2018    rhw        Created
  */
 public class RFBStandaloneWebSocketHost extends WebSocketServer

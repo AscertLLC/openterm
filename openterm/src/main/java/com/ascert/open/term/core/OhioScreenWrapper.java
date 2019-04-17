@@ -45,7 +45,7 @@ import com.ascert.open.term.gui.EmulatorPanel;
  *
  * @version 1,0 25-Apr-2017
  * @author rhw
- * @history 25-Apr-2017 srm Created
+
  */
 public class OhioScreenWrapper implements OhioScreen
 {

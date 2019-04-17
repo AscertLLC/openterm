@@ -39,7 +39,7 @@ import com.ascert.open.term.i3270.KeyHandler3270;
  *
  * @version 1,0 24-Apr-2017
  * @author srm
- * @history 24-Apr-2017 srm Created
+
  */
 public abstract class AbstractTerminal
     implements Terminal

@@ -32,7 +32,7 @@ import gnu.rfb.server.RFBServer;
  *
  * @version 1,0 30-Aug-2018
  * @author srm
- * @history
+
  *      30-Aug-2018    srm        Created
  */
 public class RFBJettyWebSocket extends WebSocketAdapter

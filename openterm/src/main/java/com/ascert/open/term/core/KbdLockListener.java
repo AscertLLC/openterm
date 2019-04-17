@@ -22,7 +22,7 @@ package com.ascert.open.term.core;
  *
  * @version 1,0 14-Sep-2017
  * @author rhw
- * @history 14-Sep-2017 rhw Created
+
  */
 public interface KbdLockListener
 {

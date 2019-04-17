@@ -23,7 +23,7 @@ package com.ascert.open.rfb.server;
  * 
  * @version 1,0 30-Aug-2018
  * @author srm
- * @history
+
  *      30-Aug-2018    srm        Created
  */
 public interface WebSocketProvider

@@ -27,7 +27,7 @@ import java.lang.reflect.InvocationTargetException;
  *
  * @version 1,0 31-Jul-2018
  * @author srm
- * @history
+
  *      31-Jul-2018    srm        Created
  */
 public interface RFBServerFactory

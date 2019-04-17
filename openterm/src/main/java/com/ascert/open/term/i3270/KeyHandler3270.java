@@ -34,7 +34,7 @@ import com.ascert.open.term.gui.AbstractKeyHandler;
  *
  * @version 1,0 21-Apr-2017
  * @author rhw
- * @history 21-Apr-2017 rhw Created
+
  */
 public class KeyHandler3270 extends AbstractKeyHandler
 {

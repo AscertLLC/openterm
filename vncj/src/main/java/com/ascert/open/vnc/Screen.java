@@ -25,7 +25,7 @@ import java.awt.image.BufferedImage;
  *
  * @version 1,0 27-Jul-2018
  * @author srm
- * @history
+
  *      27-Jul-2018    rhw        Created
  */
 public interface Screen

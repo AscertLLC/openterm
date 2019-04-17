@@ -24,7 +24,7 @@ import java.awt.Color;
  *
  * @version 1,0 25-Apr-2017
  * @author srm
- * @history 25-Apr-2017 srm Created
+
  */
 public interface TermField
 {

@@ -35,7 +35,7 @@ import com.ascert.open.term.gui.KeyHandler;
  *
  * @version 1,0 24-Apr-2017
  * @author rhw
- * @history 24-Apr-2017 rhw Created
+
  */
 public interface Terminal
 {

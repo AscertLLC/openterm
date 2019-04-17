@@ -5,14 +5,52 @@
  * peer classes removed as no longer compatible with Java8+. 
  */
 description = 'Basic VNC Java Server'
-version = "2.0.1"
+version = "2.0.2"
+archivesBaseName = "vncj"
 
 dependencies 
 {
     compile "org.java-websocket:Java-WebSocket:1.3.8"
     // We track the Felix HTTP Jetty version here for maximum cross compatibility
-    compile ("org.eclipse.jetty.websocket:websocket-servlet:9.4.11.v20180605")
-    
+    compile ("org.eclipse.jetty.websocket:websocket-servlet:9.4.11.v20180605")    
 }
+
+uploadArchives {
+  repositories {
+    mavenDeployer {
+      pom.project {
+        name project.description
+        packaging 'jar'
+        // optionally artifactId can be defined here 
+        description 'Basic set of Java classes to act as a VNC server.'
+        url 'https://github.com/AscertLLC/openterm'
+
+        scm {
+          connection 'https://github.com/AscertLLC/openterm.git'
+          developerConnection 'scm:git:ssh://git@github.com/AscertLLC/openterm.git'
+          url 'https://github.com/AscertLLC/openterm'
+        }
+
+        licenses {
+          license {
+            name "${gpl_name}"
+            url "${gpl_url}"
+          }
+        }
+
+        developers {
+          developer {
+            id = "${dev_id}"
+            name = "${dev_name}"
+            email = "${dev_email}"
+            organization = "${dev_organization}"
+            organizationUrl = "${dev_organizationUrl}"
+          }
+        }
+      }
+    }
+  }
+}
+
 
 

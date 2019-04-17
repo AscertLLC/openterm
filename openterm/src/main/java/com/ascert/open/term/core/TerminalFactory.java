@@ -26,7 +26,7 @@ import com.ascert.open.term.gui.TermOptions;
  *
  * @version 1,0 31-May-2017
  * @author srm
- * @history 31-May-2017 srm Created
+
  */
 public interface TerminalFactory
 {

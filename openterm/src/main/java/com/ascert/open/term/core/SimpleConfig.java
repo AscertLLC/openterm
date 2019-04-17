@@ -32,7 +32,7 @@ package com.ascert.open.term.core;
  *
  * @version 1,0 13-Oct-2017
  * @author rhw
- * @history 13-Oct-2017 rhw Created
+
  */
 public interface SimpleConfig
 {

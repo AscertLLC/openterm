@@ -27,7 +27,7 @@ import static com.ascert.open.term.core.AbstractTermChar.testBooleanAttribute;
  *
  * @version 1,0 03-May-2017
  * @author srm
- * @history 03-May-2017 srm Created
+
  */
 public abstract class AbstractTermField implements TermField
 {

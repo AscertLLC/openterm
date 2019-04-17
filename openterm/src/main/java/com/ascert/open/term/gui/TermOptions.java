@@ -24,7 +24,7 @@ import java.util.Properties;
  *
  * @version 1,0 03-Jan-2018
  * @author rhw
- * @history
+
  *      03-Jan-2018    rhw        Created
  */
 public interface TermOptions

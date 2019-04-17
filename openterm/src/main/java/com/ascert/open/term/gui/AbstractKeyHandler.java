@@ -45,7 +45,7 @@ import com.ascert.open.term.core.Terminal;
  *
  * @version 1,0 21-Apr-2017
  * @author rhw
- * @history 21-Apr-2017 rhw Created
+
  */
 public abstract class AbstractKeyHandler implements KeyHandler
 {

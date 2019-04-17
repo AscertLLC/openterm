@@ -38,7 +38,7 @@ import com.ascert.open.term.core.SimpleConfig;
  *
  * @version 1,0 13-Oct-2017
  * @author rhw
- * @history 13-Oct-2017 rhw Created
+
  */
 public class OpenTermConfig
     implements SimpleConfig

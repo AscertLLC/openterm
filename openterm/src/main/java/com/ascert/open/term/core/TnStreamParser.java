@@ -26,7 +26,7 @@ import com.ascert.open.ohio.Ohio.OHIO_AID;
  *
  * @version 1,0 24-Apr-2017
  * @author srm
- * @history 24-Apr-2017 srm Created
+
  */
 public interface TnStreamParser
 {

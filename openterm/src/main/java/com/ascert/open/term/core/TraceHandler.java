@@ -24,7 +24,7 @@ package com.ascert.open.term.core;
  *
  * @version 1,0 22-Nov-2017
  * @author srm
- * @history 22-Nov-2017 rhw Created
+
  */
 public interface TraceHandler
 {

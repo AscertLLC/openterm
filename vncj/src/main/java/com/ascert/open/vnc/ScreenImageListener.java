@@ -22,7 +22,7 @@ package com.ascert.open.vnc;
  *
  * @version 1,0 27-Jul-2018
  * @author rhw
- * @history
+
  *      27-Jul-2018    rhw        Created
  */
 public interface ScreenImageListener

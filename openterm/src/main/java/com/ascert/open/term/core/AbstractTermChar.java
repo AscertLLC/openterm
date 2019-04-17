@@ -29,7 +29,7 @@ import java.util.logging.Logger;
  *
  * @version 1,0 03-May-2017
  * @author srm
- * @history 03-May-2017 srm Created
+
  */
 public abstract class AbstractTermChar implements TermChar, Cloneable
 {
