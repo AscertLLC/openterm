@@ -57,14 +57,8 @@ public class Term3270
                              extAttribs ? "-E" : "");
     }
 
-    private String waitForSearch;
-    private Thread parentThread;
-    private Thread sessionThread;
-    private Thread timerThread;
-    private Thread waitForThread;
     private WaitObject waitObject;
-    private boolean waitForReturn;
-    private int waitForTimeout;
+    private volatile boolean dataArrived;
 
     private String baseType;
     private short tnModel;
@@ -258,22 +252,6 @@ public class Term3270
         return vaVideoDefault;
     }
 
-    // This is only here to act as the timeout timer for the
-    // waitFor method
-    public void run()
-    {
-        try
-        {
-            Thread.sleep(waitForTimeout * 1000);
-        }
-        catch (InterruptedException e)
-        {
-        }
-
-        waitForReturn = false;
-        waitForThread.notify();
-    }
-
     /**
      * Sets session data on the session server
      *
@@ -320,27 +298,21 @@ public class Term3270
      */
     public boolean waitFor(String search, int timeout)
     {
-        // set the class variable waitForTimeout so the run method can
-        // get at it.
-        waitForTimeout = timeout;
+        return waitForText(search, timeout*1000);
+    }
 
-        //set the class variable waitForSearch so the rest of the class
-        //can get at it.
-        waitForSearch = search;
-
-        //Suspend the calling thread
-        try
+    public boolean waitForText(String search, long timeoutMillis)
+    {
+        boolean found = contains(search);
+        long cur = System.currentTimeMillis();
+        long finish = cur + timeoutMillis;
+        while (!found && cur < finish)
         {
-            synchronized (waitObject)
-            {
-                waitObject.wait(timeout * 1000);
-            }
+            waitForNewData(finish-cur);
+            cur = System.currentTimeMillis();
+            found = contains(search);
         }
-        catch (InterruptedException e)
-        {
-        }
-
-        return waitForReturn;
+        return found;
     }
 
     /**
@@ -371,31 +343,34 @@ public class Term3270
      */
     public void waitForNewData()
     {
-        parentThread = Thread.currentThread();
+        waitForNewData(0);
+    }
 
-        try
+    public boolean waitForNewData(long timeoutMillis)
+    {
+        synchronized (waitObject)
         {
-            parentThread.wait();
+            try
+            {
+                dataArrived = false;
+                waitObject.wait(timeoutMillis);
+                return dataArrived;
+            }
+            catch (InterruptedException e)
+            {
+            }
         }
-        catch (InterruptedException e)
-        {
-        }
+        return false;
     }
 
     protected void resumeParentThread()
     {
-        if (parentThread != null)
+        if (waitObject != null)
         {
-            parentThread.notify();
-        }
-
-        if ((waitObject != null) && contains(waitForSearch))
-        {
-            waitForReturn = true;
-
             synchronized (waitObject)
             {
-                waitObject.notify();
+                dataArrived = true;
+                waitObject.notifyAll();
             }
         }
     }
