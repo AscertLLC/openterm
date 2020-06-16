@@ -135,7 +135,7 @@ public class Host implements Serializable, SimpleConfig
 
     public Host(String hostName, int port, String termType, boolean encryption)
     {
-        this(hostName, port, termType, false, false);
+        this(hostName, port, termType, encryption, false);
     }
     
     public Host(String hostName, int port, String termType, boolean encryption, boolean favourite)
@@ -213,7 +213,7 @@ public class Host implements Serializable, SimpleConfig
      */
     public boolean isEncryption()
     {
-        return Boolean.getBoolean(getProperty("host.encryption"));
+        return Boolean.parseBoolean(getProperty("host.encryption"));
     }
 
     /**
