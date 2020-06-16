@@ -124,6 +124,8 @@ public abstract class AbstractTermField implements TermField
 
     /**
      * Returns the data buffer address of the last character in this field.
+     * <b>BEWARE:</b> if the fielding wrapping is enabled (as it is by
+     * default with 3270), the end address may be less than the begin address.
      *
      * @return the data buffer address of the last character in this field
      */
@@ -172,13 +174,13 @@ public abstract class AbstractTermField implements TermField
     public TermChar[] getChars()
     {
         int adjEnd = end;
+        TermChar[] chars = term.getCharBuffer();
 
-        //TODO - need to cater for terminals which do not support wrap-around. 
         //in case the field wraps around, adjust the end to be the data buffer
         //size + n
         if (end < begin)
         {
-            adjEnd += term.getCharBuffer().length;
+            adjEnd += chars.length;
         }
 
         TermChar[] ret = new TermChar[(adjEnd - begin) + 1];
@@ -188,12 +190,12 @@ public abstract class AbstractTermField implements TermField
 
         for (int i = 0; i < ret.length; i++, c++)
         {
-            if (c == term.getCharBuffer().length)
+            if (c == chars.length)
             {
                 c = 0;
             }
 
-            ret[i] = term.getChar(c);
+            ret[i] = chars[c];
         }
 
         return ret;
@@ -250,11 +252,10 @@ public abstract class AbstractTermField implements TermField
             throw new IsProtectedException();
         }
 
-        char[] b = s.toCharArray();
-        int size = (end > begin) ? (end - begin)
-            : ((term.getRows() * term.getCols()) - begin + end);
+        int bufsize = term.getCharBuffer().length;
+        int size = (end > begin) ? (end - begin) : (bufsize - begin + end);
 
-        if (b.length > size)
+        if (s.length() > size)
         {
             throw new IOException();
         }
@@ -269,9 +270,13 @@ public abstract class AbstractTermField implements TermField
 
         int offset = begin + 1;
 
-        for (int i = 0; i < b.length; i++, offset++)
+        for (int i = 0; i < s.length(); i++, offset++)
         {
-            term.getChar(offset).setChar(b[i]);
+            if (offset == bufsize)
+            {
+                offset = 0;
+            }
+            term.getChar(offset).setChar(s.charAt(i));
         }
     }
 
@@ -352,9 +357,15 @@ public abstract class AbstractTermField implements TermField
     public void fillChars(int off, char c)
     {
         //TODO - test what happens to video attribs
-        for (int ix = begin + off; ix <= end; ix++)
+        int bufsize = term.getCharBuffer().length;
+        int fieldlen = size();
+        for (int ix = off, pos = begin + off; ix < fieldlen; ix++, pos++)
         {
-            term.getChar(ix).setChar(c);
+            if (pos == bufsize)
+            {
+                pos = 0;
+            }
+            term.getChar(pos).setChar(c);
         }
     }
 
