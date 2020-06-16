@@ -311,31 +311,52 @@ public abstract class AbstractKeyHandler implements KeyHandler
             }
 
             int oldPos = term.getCursorPosition();
-            TermField f = term.getField(oldPos);
+            int newPos = oldPos + 1;
             TermChar ch = term.getChar(oldPos);
 
-            if (ch.isStartField() || f == null || f.isProtected())
+            if (term.getFields().size() == 0)
             {
-                throw new IsProtectedException();
+                ch.setChar(key);
+                term.setCursorPosition(newPos);
             }
-
-            if (!f.isValidInput(key))
+            else
             {
-                term.getClient().beep();
-                return false;
+                TermField f = term.getField(oldPos);
+
+                if (ch.isStartField() || f == null || f.isProtected())
+                {
+                    throw new IsProtectedException();
+                }
+
+                if (!f.isValidInput(key))
+                {
+                    term.getClient().beep();
+                    return false;
+                }
+
+                ch.setChar(f.applyTransform(key));
+                f.setModified(true);
+
+                int bufsize = term.getCharBuffer().length;
+                if (f.getEndBA() < f.getBeginBA() && newPos >= bufsize)
+                {
+                    newPos -= bufsize;
+                }
+                if (newPos > f.getEndBA())
+                {
+                    if (f.isAutoTab())
+                    {
+                        term.setCursorPosition(term.getNextUnprotectedField(newPos));
+                    }
+                    else
+                    {
+                        term.getClient().beep();
+                    }
+                    return true;
+                }
+
+                term.setCursorPosition(newPos);
             }
-
-            ch.setChar(f.applyTransform(key));
-            f.setModified(true);
-
-            int newPos = oldPos + 1;
-            if (newPos > f.getEndBA() && !f.isAutoTab())
-            {
-                term.getClient().beep();
-                return true;
-            }
-
-            term.setCursorPosition(newPos);
             return true;
         }
 
@@ -519,9 +540,9 @@ public abstract class AbstractKeyHandler implements KeyHandler
     }
 
     /**
-     * Deletes the current character (by setting it to ' ') and decrements the cursor position by one.
+     * Deletes the current character (by setting it to null) and decrements the cursor position by one.
      *
-     * @throws IsProtectedException if the backspace will go into a protected field
+     * @throws IsProtectedException if the current field is protected.
      */
     public class BackspaceAction extends KeyAction
     {
@@ -529,21 +550,67 @@ public abstract class AbstractKeyHandler implements KeyHandler
         public boolean handle() throws IsProtectedException
         {
             int newPos = term.getCursorPosition() - 1;
-            TermChar ch = term.getChar(newPos);
-            if (ch.getField().isProtected() || ch.isStartField())
+            int bufsize = term.getCharBuffer().length;
+            int len;
+            if (term.getFields().size() > 0)
             {
-                throw new IsProtectedException();
+                if (newPos < 0)
+                {
+                    if (term.getChar(0).getField() == term.getChar(newPos + bufsize).getField())
+                    {
+                        newPos += bufsize;
+                    }
+                    else
+                    {
+                        return true;
+                    }
+                }
+                TermChar ch = term.getChar(newPos);
+                TermField fld = ch.getField();
+                if (fld == null || fld.isProtected())
+                {
+                    throw new IsProtectedException();
+                }
+                if (ch.isStartField())
+                {
+                    return true;
+                }
+                fld.setModified(true);
+                len = fld.getEndBA() - newPos;
+                // Must allow for possible field wrapping
+                if (len < 0)
+                {
+                    len += bufsize;
+                }
             }
-
+            else
+            {
+                if (newPos < 0)
+                {
+                    return true;
+                }
+                len = bufsize - 1 - newPos;
+            }
+            //TODO - wonder if we should use clear to reset any video attributes??
+            int pos = newPos;
+            for (int ix = 0; ix < len; ix++)
+            {
+                int nextpos = pos + 1;
+                if (nextpos >= bufsize)
+                {
+                    nextpos = 0;
+                }
+                term.getChar(pos).setChar(term.getChar(nextpos).getChar());
+                pos = nextpos;
+            }
+            term.getChar(pos).setChar((char)0);
             term.setCursorPosition(newPos);
-            ch.getField().setModified(true);
-            ch.setChar(' ');    //TODO - wonder if we should use clear to reset any video attributes??
             return true;
         }
     }
 
     /**
-     * Deletes the current character (by setting it to ' ').
+     * Deletes the current character (by setting it to null).
      *
      * @throws IsProtectedException if the current field is protected.
      */
@@ -553,20 +620,39 @@ public abstract class AbstractKeyHandler implements KeyHandler
         public boolean handle() throws IsProtectedException
         {
             int pos = term.getCursorPosition();
-            TermField fld = term.getChar(pos).getField();
-            if (fld.isProtected())
+            int bufsize = term.getCharBuffer().length;
+            int len;
+            if (term.getFields().size() > 0)
             {
-                throw new IsProtectedException();
+                TermChar ch = term.getChar(pos);
+                TermField fld = ch.getField();
+                if (fld == null || fld.isProtected() || ch.isStartField())
+                {
+                    throw new IsProtectedException();
+                }
+                fld.setModified(true);
+                len = fld.getEndBA() - pos;
+                // Must allow for possible field wrapping
+                if (len < 0)
+                {
+                    len += bufsize;
+                }
             }
-
-            for (int ix = pos; ix < fld.getEndBA(); ix++)
+            else
             {
-                term.getChar(ix).setChar(term.getChar(ix + 1).getChar());
+                len = bufsize - 1 - pos;
             }
-
-            TermChar ch = term.getChar(fld.getEndBA());
-            ch.setChar(' ');
-            ch.getField().setModified(true);
+            for (int ix = 0; ix < len; ix++)
+            {
+                int nextpos = pos + 1;
+                if (nextpos >= bufsize)
+                {
+                    nextpos = 0;
+                }
+                term.getChar(pos).setChar(term.getChar(nextpos).getChar());
+                pos = nextpos;
+            }
+            term.getChar(pos).setChar((char)0);
             return true;
         }
     }

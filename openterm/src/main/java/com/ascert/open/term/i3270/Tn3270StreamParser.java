@@ -986,7 +986,7 @@ public class Tn3270StreamParser implements TnStreamParser
             {
                 Term3270Char currChar = chars[i];
 
-                if (currChar.getChar() != ' ')
+                if (currChar.getChar() != 0) //null suppression
                 {
                     dataOut[byteCount++] = (short) asc2ebc[currChar.getChar()];
                 }
