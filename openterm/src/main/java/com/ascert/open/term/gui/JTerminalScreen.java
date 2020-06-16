@@ -91,8 +91,10 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
     private static final int MSG_STRING = 1;
     private static final int MSG_BROADCAST = 2;
 
-    public static final int MARGIN_LEFT = 5;
-    public static final int MARGIN_TOP = 6;
+    public static final int MARGIN_X = 10;
+    public static final int MARGIN_Y = 6;
+
+    public static enum SelectionMode { RECTANGLE, CONTINUOUS };
 
     // These are really just stop-gap methods between using static defaults, and having a fully safe config model with 
     // bullet proof defaults
@@ -126,7 +128,11 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
     {
         return OpenTermConfig.getProp("color.cursor", "Red");
     }
-    
+
+    public static String getSelectionColor()
+    {
+        return OpenTermConfig.getProp("color.selection", "Gray");
+    }
     
     public static Color getColor(String colorName)
     {
@@ -140,6 +146,7 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
             case "blue":        return Color.BLUE;
             case "orange":      return Color.ORANGE;
             case "turquoise":   return Color.CYAN;
+            case "gray":        return Color.GRAY;
             case "dark blue":   return new Color(0, 51, 102);
             case "light green": return new Color(204, 255, 204);
         }
@@ -155,6 +162,7 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
     private Color currentBGColor;
     private Color currentFGColor;
     private Color cursorColor;
+    private Color selectionColor;
 
     private Font font;
     private int fontSize;
@@ -178,6 +186,11 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
     private int char_height;
     private int char_width;
     private Point rectStartPoint;
+    private int selectFirstPos;
+    private int selectStartPos;
+    private int selectEndPos;
+    private Rectangle selectRect;
+    private SelectionMode selectMode;
 
     JToolBar toolbar;
     private boolean firstInit = true;
@@ -208,6 +221,7 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
         currentBGColor = getColor(getBgColor());
         currentFGColor = getColor(getFgColor());
         cursorColor = getColor(getCursorColor());
+        selectionColor = getColor(getSelectionColor());
         
         origInputMap = this.getInputMap(WHEN_IN_FOCUSED_WINDOW);
         origActionMap = this.getActionMap();
@@ -285,11 +299,14 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
 
         buildToolBar();
 
-        frameBuff = new BufferedImage(term.getCols() * DEFAULT_WIDTH_PER_COL, term.getCols() * DEFAULT_HEIGHT_PER_ROW,
+        frameBuff = new BufferedImage(term.getCols() * DEFAULT_WIDTH_PER_COL, term.getRows() * DEFAULT_HEIGHT_PER_ROW,
                                       BufferedImage.TYPE_INT_RGB);
         frame = frameBuff.createGraphics();
         windowMsgOnScreen = false;
         rectStartPoint = new Point();
+        selectRect = new Rectangle(-1, -1, 0, 0);
+        selectStartPos = selectEndPos = -1;
+        selectMode = SelectionMode.RECTANGLE;
         setBackground(currentBGColor);
         setFont(font);
 
@@ -353,8 +370,8 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
         frame.setFont(font);
         frame.setColor(cursorColor);
 
-        int x = ((pos % term.getCols()) * char_width) + (char_width + 5);
-        int y = ((pos / term.getCols()) * char_height) + 7;
+        int x = ((pos % term.getCols()) * char_width) + MARGIN_X;
+        int y = ((pos / term.getCols()) * char_height) + 1 + MARGIN_Y;
         int w = char_width;
         int h = char_height - 2;
 
@@ -365,11 +382,11 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
                 frame.setColor(Color.black);
 
                 //TODO - careful here over what char we are actually getting!
-                byte[] c =
+                char[] c =
                 {
-                    (byte) term.getChar(pos).getDisplayChar()
+                    term.getChar(pos).getDisplayChar()
                 };
-                frame.drawBytes(c, 0, 1, x, ((pos / term.getCols()) * char_height) + char_ascent + 5);
+                frame.drawChars(c, 0, 1, x, y + char_ascent - 2);
                 break;
 
             case SQUARE:
@@ -384,7 +401,7 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
 
             case HORIZONTAL:
                 //TODO - check this
-                frame.drawLine(x, y + h, x + w, y + h);
+                frame.drawLine(x, y + h, x + w - 1, y + h);
                 break;
         }
     }
@@ -394,8 +411,9 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
         // Paints the border and status line
         // (on some devices, border should be user configurable!)
         frame.setColor(term.getStatusBorderColor(Color.red));
-        frame.drawLine(char_width + 5, ((term.getRows()) * char_height) + char_ascent + 4,
-                       (term.getCols() * char_width) + char_width + 5, ((term.getRows()) * char_height) + char_ascent + 4);
+        int y = (term.getRows() * char_height) + char_ascent-2 + MARGIN_Y;
+        frame.drawLine(MARGIN_X, y,
+                       (term.getCols() * char_width) + MARGIN_X - 1, y);
 
         TermChar[] stsCh = term.getStatusLine();
         if (stsCh != null)
@@ -563,8 +581,7 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
             }
             catch (NullPointerException e)
             {
-                e.printStackTrace(System.out);
-                log.severe("exception in JTerminalScreen.paintComponent: " + e.getMessage());
+                log.log(Level.SEVERE, "Exception in JTerminalScreen.paintComponent: ", e);
             }
         }
     }
@@ -582,8 +599,7 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
             }
             catch (InterruptedException e)
             {
-                //e.printStackTrace();
-                log.fine(e.getMessage());
+                log.finer("Cursor blink interrupted: "+e.getMessage());
             }
 
             refresh();
@@ -635,8 +651,8 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
             char_height = (int) Math.round(bound.getHeight());
             char_ascent = Math.round(font.getLineMetrics("M", context).getAscent());
 
-            int width = char_width * (term.getCols() + 5);
-            int height = (char_height * (term.getRows() + 3));
+            int width = (char_width * term.getCols()) + (2 * MARGIN_X);
+            int height = (char_height * (term.getRows() + 2)) + (2 * MARGIN_Y);
             setSize(width, height);
             setPreferredSize(new Dimension(width, height));
             frameBuff = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
@@ -727,7 +743,7 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
     public void blankScreen(boolean paint)
     {
         frame.setColor(term.getBackgroundColor(currentBGColor));
-        frame.fillRect(0, 0, char_width * (term.getCols() + 5), char_height * (term.getRows() + 1) + (char_height + char_ascent));
+        frame.fillRect(0, 0, getSize().width, getSize().height);
         
         if (paint)
         {
@@ -742,13 +758,14 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
      */
     protected void paintChar(TermChar c, int pos)
     {
-        Color bgcolor = c.getBgColor(currentBGColor);
-        Color fgcolor = c.getFgColor(currentFGColor);
-
         int row = pos / term.getCols();
         int col = pos % term.getCols();
-        int fillX = (col * char_width) + char_width + 5;
-        int fillY = (row * char_height) + 7;
+        int fillX = (col * char_width) + MARGIN_X;
+        int fillY = (row * char_height) + 1 + MARGIN_Y;
+
+        boolean isSelected = (selectMode == SelectionMode.RECTANGLE)? selectRect.contains(col,row) : (pos>=selectStartPos && pos<=selectEndPos);
+        Color bgcolor = isSelected? selectionColor : c.getBgColor(currentBGColor);
+        Color fgcolor = c.getFgColor(currentFGColor);
 
         // We only apply monochrome video style transitions if the Terminal is not
         // doing specific color mapping itself
@@ -788,18 +805,15 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
         frame.setColor(bgcolor);
         frame.fillRect(fillX, fillY, char_width, char_height);
 
-        byte[] ca = new byte[1];
-        ca[0] = (byte) c.getDisplayChar();
+        char[] ca = { c.getDisplayChar() };
 
         frame.setColor(fgcolor);
-        frame.drawBytes(ca, 0, 1,
-                        (col * char_width) + (char_width + 5),
-                        (row * char_height) + char_ascent + 5);
+        frame.drawChars(ca, 0, 1, fillX, fillY + char_ascent - 2);
 
         if (c.isUnderscore())
         {
-            frame.drawLine(((col + 1) * char_width) + 5, (row * char_height) + 5 + char_height,
-                           ((col + 2) * char_width) + 4, (row * char_height) + 5 + char_height);
+            int uy = fillY + char_height - 2;
+            frame.drawLine(fillX, uy, fillX + char_width - 1, uy);
         }
     }
 
@@ -933,7 +947,7 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
     @Override
     public int[] getScreenPixels()
     {
-        return frameBuff.getRGB(0, 0, frameBuff.getWidth(), frameBuff.getHeight(), null, 0, frameBuff.getWidth());         
+        return frameBuff.getRGB(0, 0, frameBuff.getWidth(), frameBuff.getHeight(), null, 0, frameBuff.getWidth());
     }
     
     public void processScreenKey(KeyEvent evt)
@@ -959,7 +973,42 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
     {
         return this.kbdEnabled;
     }
-    
+
+    public void selectAll()
+    {
+        selectStartPos = 0;
+        selectEndPos = term.getDisplayPage().displaySize()-1;
+        selectRect.setBounds(0, 0, term.getCols(), term.getRows());
+        refresh();
+    }
+
+    public void clearSelection()
+    {
+        selectStartPos = selectEndPos = -1;
+        selectRect.setBounds(-1, -1, 0, 0);
+        refresh();
+    }
+
+    public SelectionMode getSelectionMode()
+    {
+        return selectMode;
+    }
+
+    public int getSelectionStartPos()
+    {
+        return selectStartPos;
+    }
+
+    public int getSelectionEndPos()
+    {
+        return selectEndPos;
+    }
+
+    public Rectangle getSelectionRectangle()
+    {
+        return selectRect;
+    }
+
     //////////////////////////////////////////////////
     // INTERFACE METHODS - MouseListener, MouseMotionListener
     //////////////////////////////////////////////////
@@ -972,6 +1021,7 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
      */
     public void mouseClicked(MouseEvent e)
     {
+        clearSelection();
 
         if (clearStatus() || term.getDisplayPage().isLocalEditMode())
         {
@@ -982,18 +1032,9 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
         {
             log.finer("mouse clicked at: (" + e.getX() + ", " + e.getY() + ")");
 
-            double dx = e.getX() - MARGIN_LEFT;
-            double dy = e.getY() - MARGIN_TOP;
-
-            if ((dx >= 0) && (dy >= 0))
-            {
-                int newpos = (((int) Math.floor(dx / char_width)) + //TODO - check this use of literal 80
-                              ((int) Math.floor(dy / char_height) * 80)) - 1;
-
-                if (newpos >= 0 && newpos < (term.getCols() * term.getRows()))
-                {
-                    term.setCursorPosition((short) (newpos), true);
-                }
+            int pos = calcPosition(e.getX(), e.getY(), false);
+            if (pos >= 0) {
+                term.setCursorPosition((short)pos, true);
             }
         }
 
@@ -1003,56 +1044,21 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
     public void mousePressed(MouseEvent e)
     {
         /* Save the initial point for the rectangle */
-        rectStartPoint.x = e.getX();
-        rectStartPoint.y = e.getY();
-
+        selectFirstPos = calcPosition(e.getX(), e.getY(), true);
+        rectStartPoint.x = selectFirstPos % term.getCols();
+        rectStartPoint.y = selectFirstPos / term.getCols();
     }
 
     public void mouseReleased(MouseEvent e)
     {
+        setSelected(e.getX(), e.getY());
         refresh();
     }
 
     public void mouseDragged(MouseEvent e)
     {
-        Rectangle rect = null;
-
-        int eventY = e.getY();
-        int eventX = e.getX();
-        //TODO - ??
-        renderScreen();
-
-        frame.setColor(Color.WHITE);
-
-        /* Quadrant IV */
-        if ((rectStartPoint.x < eventX) && (rectStartPoint.y < eventY))
-        {
-            rect = new Rectangle(rectStartPoint.x, rectStartPoint.y,
-                                 eventX - rectStartPoint.x, eventY - rectStartPoint.y);
-        }
-        /* Quadrant I */
-        else if (rectStartPoint.x < eventX)
-        {
-            rect = new Rectangle(rectStartPoint.x, eventY,
-                                 eventX - rectStartPoint.x, rectStartPoint.y - eventY);
-
-        }
-        else if (rectStartPoint.y < eventY)
-        {
-            /* Quadrant III */
-            rect = new Rectangle(eventX, rectStartPoint.y,
-                                 rectStartPoint.x - eventX, eventY - rectStartPoint.y);
-
-        }
-        else
-        {
-            /* Quadrant II */
-            rect = new Rectangle(eventX, eventY,
-                                 rectStartPoint.x - eventX, rectStartPoint.y - eventY);
-
-        }
-        frame.draw(rect);
-        repaint();
+        setSelected(e.getX(), e.getY());
+        refresh();
     }
     
     @Override
@@ -1106,5 +1112,71 @@ public class JTerminalScreen extends JPanel implements TnAction, Printable, Scre
         lastFrame = newFrame;
     }
     
-    
+    private int calcPosition(int x, int y, boolean constrainBounds)
+    {
+        int dx = x - MARGIN_X;
+        int dy = y - MARGIN_Y;
+        int maxX = (term.getCols() * char_width) - 1;
+        int maxY = (term.getRows() * char_height) - 1;
+        if (constrainBounds)
+        {
+            if (dx < 0) { dx = 0; }
+            else if (dx > maxX) { dx = maxX; }
+
+            if (dy < 0) { dy = 0; }
+            else if (dy > maxY) { dx = maxY; }
+        }
+        else
+        {
+            if (dx < 0 || dx > maxX || dy < 0 || dy > maxY)
+            {
+                return -1;
+            }
+        }
+
+        return ((dy / char_height) * term.getCols()) + (dx / char_width);
+    }
+
+    private void setSelected(int x, int y)
+    {
+        int pos = calcPosition(x, y, true);
+        if (pos < selectFirstPos)
+        {
+            selectStartPos = pos;
+            selectEndPos = selectFirstPos;
+        }
+        else
+        {
+            selectStartPos = selectFirstPos;
+            selectEndPos = pos;
+        }
+
+        int colx = pos % term.getCols();
+        int rowy = pos / term.getCols();
+        if ((rectStartPoint.x < colx) && (rectStartPoint.y < rowy))
+        {
+            // Quadrant IV
+            selectRect.setBounds(rectStartPoint.x, rectStartPoint.y,
+                                 colx - rectStartPoint.x + 1, rowy - rectStartPoint.y + 1);
+        }
+        else if (rectStartPoint.x < colx)
+        {
+            // Quadrant I
+            selectRect.setBounds(rectStartPoint.x, rowy,
+                                 colx - rectStartPoint.x + 1, rectStartPoint.y - rowy + 1);
+        }
+        else if (rectStartPoint.y < rowy)
+        {
+            // Quadrant III
+            selectRect.setBounds(colx, rectStartPoint.y,
+                                 rectStartPoint.x - colx + 1, rowy - rectStartPoint.y + 1);
+        }
+        else
+        {
+            // Quadrant II
+            selectRect.setBounds(colx, rowy,
+                                 rectStartPoint.x - colx + 1, rectStartPoint.y - rowy + 1);
+        }
+    }
+
 }

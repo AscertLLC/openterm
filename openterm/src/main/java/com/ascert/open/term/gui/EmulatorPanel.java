@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2016, 2017 Ascert, LLC.
  * www.ascert.com
@@ -28,16 +29,22 @@ import com.ascert.open.term.application.OpenTermConfig;
 import java.awt.AWTEvent;
 import java.awt.BorderLayout;
 import java.awt.Event;
+import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
+import java.awt.event.KeyEvent;
+import java.awt.datatransfer.Transferable;
+import java.awt.datatransfer.StringSelection;
+import java.awt.datatransfer.DataFlavor;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Logger;
+import java.util.logging.Level;
 
 import javax.swing.*;
 
@@ -45,7 +52,9 @@ import com.ascert.open.term.core.Host;
 
 import com.ascert.open.term.i3270.Term3270;
 import com.ascert.open.term.core.Terminal;
+import com.ascert.open.term.core.TermField;
 import com.ascert.open.term.core.TerminalFactoryRegistrar;
+import com.ascert.open.term.core.IsProtectedException;
 
 
 /**
@@ -255,6 +264,7 @@ public class EmulatorPanel extends JPanel
         inputMap.put(KeyStroke.getKeyStroke("F10"), "none");
 
         JMenu file = new JMenu("Terminal");
+        file.setMnemonic(KeyEvent.VK_T);
 
         AbstractAction prtAct = new AbstractAction("Print")
         {
@@ -263,9 +273,9 @@ public class EmulatorPanel extends JPanel
                 rhp.printScreen();
             }
         };
-        file.add(prtAct);
-        menubar.getActionMap().put("PRINT", prtAct);
-        inputMap.put(KeyStroke.getKeyStroke("alt P"), "PRINT");
+        JMenuItem printItem = file.add(prtAct);
+        printItem.setAccelerator(KeyStroke.getKeyStroke("alt P"));
+        printItem.setMnemonic(KeyEvent.VK_P);
 
         file.addSeparator();
 
@@ -278,11 +288,50 @@ public class EmulatorPanel extends JPanel
         });
         menubar.add(file);
 
+        JMenu edit = new JMenu("Edit");
+        edit.setMnemonic(KeyEvent.VK_E);
+
+        EmulatorTransferHandler th = new EmulatorTransferHandler();
+
+        JMenuItem cutItem = edit.add(TransferHandler.getCutAction());
+        cutItem.setText("Cut");
+        cutItem.setAccelerator(KeyStroke.getKeyStroke("alt X"));
+        cutItem.setMnemonic(KeyEvent.VK_T);
+        cutItem.setTransferHandler(th);
+
+        JMenuItem copyItem = edit.add(TransferHandler.getCopyAction());
+        copyItem.setText("Copy");
+        copyItem.setAccelerator(KeyStroke.getKeyStroke("alt C"));
+        copyItem.setMnemonic(KeyEvent.VK_C);
+        copyItem.setTransferHandler(th);
+
+        JMenuItem pasteItem = edit.add(TransferHandler.getPasteAction());
+        pasteItem.setText("Paste");
+        pasteItem.setAccelerator(KeyStroke.getKeyStroke("alt V"));
+        pasteItem.setMnemonic(KeyEvent.VK_P);
+        pasteItem.setTransferHandler(th);
+
+        edit.addSeparator();
+
+        AbstractAction selAllAct = new AbstractAction("Select All")
+        {
+            public void actionPerformed(ActionEvent evt) {
+                rhp.selectAll();
+            }
+        };
+        JMenuItem selAllItem = edit.add(selAllAct);
+        selAllItem.setAccelerator(KeyStroke.getKeyStroke("alt A"));
+        selAllItem.setMnemonic(KeyEvent.VK_A);
+
+        menubar.add(edit);
+
         connect = new JMenu("Connect");
+        connect.setMnemonic(KeyEvent.VK_N);
         initHostsMenu();
         menubar.add(connect);
 
         JMenu options = new JMenu("Options");
+        options.setMnemonic(KeyEvent.VK_O);
 
         JMenu fonts = new JMenu("Font Size");
         ButtonGroup fontsGroup = new ButtonGroup();
@@ -383,6 +432,7 @@ public class EmulatorPanel extends JPanel
         menubar.add(options);
 
         JMenu about = new JMenu("Help");
+        about.setMnemonic(KeyEvent.VK_H);
         menubar.add(about);
         about.add(new AbstractAction("About")
         {
@@ -395,7 +445,7 @@ public class EmulatorPanel extends JPanel
 
         // Not perfect as initially it shows a blank screen, but at least it can be made of an expected type
         // Could be nicer to show something more "neutral"
-        if (term == null)
+        if (term == null && OpenTermConfig.getProp("startup.type") != null)
         {
             try
             {
@@ -403,7 +453,7 @@ public class EmulatorPanel extends JPanel
             }
             catch (Exception ex)
             {
-                log.warning(ex.getLocalizedMessage());
+                log.log(Level.WARNING, "Failed to create startup terminal type", ex);
             }
         }
         
@@ -677,10 +727,170 @@ public class EmulatorPanel extends JPanel
             getParentFrame().pack();
         }
     }
-    
+
     public JTerminalScreen getTerminalScreen()
     {
         return rhp;
     }
 
+
+
+    private class EmulatorTransferHandler extends TransferHandler
+    {
+        public boolean canImport(TransferHandler.TransferSupport info)
+        {
+            return info.isDataFlavorSupported(DataFlavor.stringFlavor);
+        }
+
+        protected Transferable createTransferable(JComponent c)
+        {
+            String data = new String(rhp.getTerm().getDisplay());
+            String sel;
+            if (rhp.getSelectionMode() == JTerminalScreen.SelectionMode.RECTANGLE)
+            {
+                int cols = rhp.getTerm().getCols();
+                Rectangle selRect = rhp.getSelectionRectangle();
+                StringBuilder lines = new StringBuilder((selRect.width+2)*selRect.height);
+                if (selRect.x >= 0 && selRect.y >= 0)
+                {
+                    int pos = selRect.y*cols + selRect.x;
+                    for (int row=0; row<selRect.height && pos+selRect.width < data.length(); row++, pos+=cols)
+                    {
+                        if (row > 0) { lines.append(System.lineSeparator()); }
+                        lines.append(data.substring(pos, pos+selRect.width));
+                    }
+                }
+                sel = lines.toString();
+            }
+            else
+            {
+                int start = rhp.getSelectionStartPos();
+                int end = rhp.getSelectionEndPos();
+                sel = (start >= 0 && start < data.length() &&
+                       end >= 0 && end < data.length() && start <= end)?
+                  data.substring(start, end+1) : "";
+            }
+            return new StringSelection(sel);
+        }
+
+        public int getSourceActions(JComponent c)
+        {
+            return TransferHandler.COPY_OR_MOVE;
+        }
+
+        public boolean importData(TransferHandler.TransferSupport info)
+        {
+            try
+            {
+                String data = (String)info.getTransferable().getTransferData(DataFlavor.stringFlavor);
+                Terminal term = rhp.getTerm();
+                boolean hasFields = (term.getFields().size() > 0);
+                int maxpos = term.getDisplayPage().displaySize();
+                int pos = term.getCursorPosition();
+                for (int c=0; c<data.length() && pos<maxpos; c++)
+                {
+                    char ch = data.charAt(c);
+                    if (!hasFields)
+                    {
+                        term.getChar(pos).setChar(ch);
+                        pos++;
+                    }
+                    else
+                    {
+                        TermField fld = term.getChar(pos).getField();
+                        if (fld == null || fld.isProtected())
+                        {
+                            break;
+                        }
+                        if (!fld.isValidInput(ch))
+                        {
+                            term.getClient().beep();
+                            break;
+                        }
+                        term.getChar(pos).setChar(ch);
+                        try { fld.setModified(true); }
+                        catch (IsProtectedException shouldNotHappen) {}
+
+                        pos++;
+                        if (fld.getEndBA() < fld.getBeginBA() && pos >= maxpos)
+                        {
+                            pos -= maxpos;
+                        }
+                        if (pos > fld.getEndBA())
+                        {
+                            if (fld.isAutoTab())
+                            {
+                                pos = term.getNextUnprotectedField(pos);
+                            }
+                            else
+                            {
+                                if (c < data.length()-1)
+                                {
+                                    term.getClient().beep();
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+                term.setCursorPosition(pos);
+                term.getClient().refresh();
+            }
+            catch (Exception e)
+            {
+                return false;
+            }
+            return true;
+        }
+
+        protected void exportDone(JComponent c, Transferable data, int action)
+        {
+            if (action == TransferHandler.MOVE)
+            {
+                // Cut characters from terminal
+                if (rhp.getSelectionMode() == JTerminalScreen.SelectionMode.RECTANGLE)
+                {
+                    int cols = rhp.getTerm().getCols();
+                    Rectangle selRect = rhp.getSelectionRectangle();
+                    if (selRect.x >= 0 && selRect.y >= 0)
+                    {
+                        int pos = selRect.y*cols + selRect.x;
+                        for (int row=0; row<selRect.height; row++, pos+=cols)
+                        {
+                            for (int col=0; col<selRect.width; col++)
+                            {
+                                TermField fld = term.getChar(pos+col).getField();
+                                if (fld != null && !fld.isProtected())
+                                {
+                                    term.getChar(pos+col).setChar((char)0);
+                                    try { fld.setModified(true); }
+                                    catch (IsProtectedException shouldNotHappen) {}
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    int start = rhp.getSelectionStartPos();
+                    int end = rhp.getSelectionEndPos();
+                    if (start >= 0 && end >= 0 && start <= end)
+                    {
+                        for (int ix = start; ix <= end; ix++)
+                        {
+                            TermField fld = term.getChar(ix).getField();
+                            if (fld != null && !fld.isProtected())
+                            {
+                                term.getChar(ix).setChar((char)0);
+                                try { fld.setModified(true); }
+                                catch (IsProtectedException shouldNotHappen) {}
+                            }
+                        }
+                    }
+                }
+                term.getClient().refresh();
+            }
+            rhp.clearSelection();
+        }
+    }
 }
