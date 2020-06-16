@@ -209,7 +209,7 @@ public class OpenTermConfig
         }
         catch (IOException ioe)
         {
-            log.warning("Exception loading default properties: " + ioe);
+            log.log(Level.WARNING, "Exception loading default properties", ioe);
         }
     }
 
@@ -222,7 +222,7 @@ public class OpenTermConfig
         }
         catch (BackingStoreException ex)
         {
-            log.severe("Exception clearing preferences: " + ex);
+            log.log(Level.SEVERE, "Exception clearing preferences", ex);
             return false;
         }
     }

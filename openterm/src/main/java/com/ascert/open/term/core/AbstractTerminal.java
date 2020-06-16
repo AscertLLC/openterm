@@ -291,7 +291,7 @@ public abstract class AbstractTerminal
     // Convenience method to get a String containing a specified number of chars from start position
     public String getCharString(int startBA, int len)
     {
-        StringBuffer prompt = new StringBuffer();
+        StringBuffer prompt = new StringBuffer(len);
         for (int ix = 0; ix < len; ix++)
         {
             prompt.append(getChar(startBA + ix).getChar());
@@ -627,7 +627,7 @@ public abstract class AbstractTerminal
         throws IOException, UnknownHostException
     {
         tn.setEncryption(host.isEncryption());
-        log.fine("connecting " + host + ":" + host.getPort());
+        log.fine("connecting " + host + ":" + host.getPort()+"; "+host.isEncryption());
         //Wipe down any possible old remnants from previous session
         initTerm();
         client.status(TnAction.CONNECTING);
@@ -876,16 +876,19 @@ public abstract class AbstractTerminal
 
         public TermChar[] getCharBuffer(boolean includeStatus)
         {
+            if (!includeStatus)
+            {
+                return this.chars;
+            }
             TermChar[] sts = getStatusLine();
-
-            if (!includeStatus || sts == null)
+            if (sts == null)
             {
                 return this.chars;
             }
 
-            TermChar[] fullPage = new TermChar[chars.length + statusLine.length];
+            TermChar[] fullPage = new TermChar[chars.length + sts.length];
             System.arraycopy(chars, 0, fullPage, 0, chars.length);
-            System.arraycopy(statusLine, 0, fullPage, chars.length, statusLine.length);
+            System.arraycopy(statusLine, 0, fullPage, chars.length, sts.length);
             return fullPage;
         }
 
@@ -1018,7 +1021,6 @@ public abstract class AbstractTerminal
                         lastField.setEndBA(chars.length - 1);
                     }
                 }
-
                 fieldsChanged = false;
             }
         }

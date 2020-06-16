@@ -35,6 +35,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import java.util.logging.Logger;
+import java.util.logging.Level;
 
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
@@ -133,7 +134,7 @@ public class RWTelnet implements Runnable
     protected TnStreamParser tnParser;
     private Socket tnSocket;
     private SSLSocket tnSocketSSL;
-    private Thread sessionThread;
+    private volatile Thread sessionThread;
     protected short[] bufferTerm; //put the 3270 bytes in here
     protected int bufferTermLen;
     private boolean[] doHistory;
@@ -237,7 +238,14 @@ public class RWTelnet implements Runnable
         }
         catch (IOException e)
         {
-            log.severe("failure in telnet thread loop: " + e.getMessage());
+            if (sessionThread == null)
+            {
+                log.log(Level.FINER, "Telnet thread loop terminated", e);
+            }
+            else
+            {
+                log.log(Level.SEVERE, "Failure in telnet thread loop", e);
+            }
             tnParser.status(TnAction.DISCONNECTED_BY_REMOTE_HOST);
         }
         finally
@@ -291,13 +299,15 @@ public class RWTelnet implements Runnable
     {
         if (sessionThread == null || tnSocket == null && tnSocketSSL == null)
         {
-            log.info("socket is null, not connected");
+            log.fine("socket is null, not connected");
             return;
         }
 
         try
         {
-            sessionThread.interrupt();
+            Thread sessionNotify = sessionThread;
+            sessionThread = null;
+            sessionNotify.interrupt();
             silentClose(is);
             silentClose(os);
             silentClose(encryption ? tnSocketSSL : tnSocket);
@@ -308,8 +318,7 @@ public class RWTelnet implements Runnable
         }
         catch (Exception e)
         {
-            e.printStackTrace();
-            log.severe(e.getMessage());
+            log.log(Level.SEVERE, "Error in disconnecting", e);
         }
         finally
         {
@@ -485,7 +494,8 @@ public class RWTelnet implements Runnable
         }
         catch (IOException e)
         {
-            e.printStackTrace();
+            // Seems somewhat bogus to swallow this?
+            log.log(Level.SEVERE, "Error setting session data "+key+" to "+value, e);
         }
     }
 
