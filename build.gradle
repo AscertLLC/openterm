@@ -12,6 +12,9 @@ ext {
     
     gpl_name = 'GNU Library General Public License version 2'
     gpl_url = 'https://github.com/AscertLLC/openterm/blob/master/LICENSE'    
+    
+    // Make sure we have a default for initial configuration evaluation
+    isReleaseVersion = false    
 }
 
 
@@ -24,57 +27,113 @@ allprojects {
     }
     
     group = "com.ascert.open"
+    
+    // When it comes to publishing we need to ensure we have the subproject version set 
+    // rather than the root project version
+    afterEvaluate { project -> 
+        ext.isReleaseVersion = !version.endsWith("SNAPSHOT")        
+    }
 }
 
+
 subprojects { 
-    apply plugin: 'java'
-    apply plugin: 'maven'
+    apply plugin: 'java-library'
+    apply plugin: 'maven-publish'
     apply plugin: 'signing'
     
     dependencies {
         testCompile group: 'junit', name: 'junit', version: '[4,)'
     }
-    
-    task javadocJar(type: Jar) {
-        classifier = 'javadoc'
-        javadoc.options.addBooleanOption('Xdoclint:none', true)
-        javadoc.options.addStringOption('-quiet')
-        from javadoc
-    }
-    
-    task sourcesJar(type: Jar) {
-        classifier = 'sources'
-        from sourceSets.main.allSource
-    }
-    
-    artifacts {
-        archives javadocJar, sourcesJar
-    }
+
+    javadoc {
+        if (JavaVersion.current().isJava8Compatible()) {
+            options.addStringOption('Xdoclint:none', '-quiet')
+            logging.captureStandardError LogLevel.INFO
+            logging.captureStandardOutput LogLevel.INFO
+        }    
+        
+        if(JavaVersion.current().isJava9Compatible()) {
+            options.addBooleanOption('html5', true)
+        }
+    }    
+  
+    /*
+     *
+     * The signing and publishing tasks below are only needed for OSSRH publishing, and will 
+     * require configuration of approriate signing and repository credentials. They should not
+     * impact local R&D work in any way though, and normal local publishing can be used without any
+     * setup e.g.
+     *
+     *      gradle publishToMavenLocal
+     */
+     
+    java {
+        withJavadocJar()
+        withSourcesJar()
+    }  
+
+    publishing {
+        publications {
+            mavenJava(MavenPublication) {
+                //artifactId = project.artifactId // or maybe archiveBaseName?            
+                from components.java
+                pom {
+                    name = project.description
+                    url = "https://github.com/AscertLLC/openterm"
+                    packaging = "jar"
+                    
+                    licenses {
+                        license {
+                            name = "${gpl_name}"
+                            url = "${gpl_url}"
+                        }
+                    }
+                    developers {
+                        developer {
+                            id = "${dev_id}"
+                            name = "${dev_name}"
+                            email = "${dev_email}"
+                            organization = "${dev_organization}"
+                            organizationUrl = "${dev_organizationUrl}"
+                        }
+                    }
+                    scm {
+                        connection = 'https://github.com/AscertLLC/openterm.git'
+                        developerConnection = 'scm:git:ssh://git@github.com/AscertLLC/openterm.git'
+                        url = 'https://github.com/AscertLLC/openterm'
+                    }
+                }
+            }
+        }
+        repositories {            
+            maven {
+                afterEvaluate { project -> 
+                    def releaseRepo = "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+                    def snapshotRepo = "https://oss.sonatype.org/content/repositories/snapshots/"
+                    url = (isReleaseVersion) ? releaseRepo : snapshotRepo
+                    
+                    //println "repos: " + version
+                    //println "repos: " + isReleaseVersion
+                    //println url
+                    
+                    credentials {
+                        username = project.hasProperty('ossrhUsername') ? ossrhUsername : "Unknown user"
+                        password = project.hasProperty('ossrhPassword') ? ossrhPassword : "Unknown password"
+                    }
+                }
+            }
+        }
+    }  
 
     signing {
-        //def signingKey = findProperty("signingKey")
-        //def signingPassword = findProperty("signingPassword")
-        //useInMemoryPgpKeys(signingKey, signingPassword)
-        sign configurations.archives
-    }
-
-    uploadArchives {
-      repositories {
-        mavenDeployer {
-          beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
-    
-          repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
-            authentication(userName: ossrhUsername, password: ossrhPassword)
-          }
-    
-          snapshotRepository(url: "https://oss.sonatype.org/content/repositories/snapshots/") {
-            authentication(userName: ossrhUsername, password: ossrhPassword)
-          }
+        afterEvaluate { project -> 
+            //println "sign: " + version
+            //println "sign: " + isReleaseVersion
+            required { isReleaseVersion && gradle.taskGraph.hasTask("publish") }
+            sign publishing.publications.mavenJava
         }
-      }
-    }     
-}  
-
-
+    }
+    
+}
 
 
