@@ -62,7 +62,11 @@ public class Term3270Field extends AbstractTermField
     {
         if (this.isNumeric())
         {
-            return Character.isDigit(ch);
+            // The old 3270 programmers reference description of a numeric field:
+            // Fields defined as numeric will accept all uppercase
+            // symbols and numerics from a data entry-type keyboard.
+            return Character.isDigit(ch) || ch == '.' || ch == '-' ||
+                   Character.isUpperCase(ch) || ch == ' ';
         }
 
         return true;
