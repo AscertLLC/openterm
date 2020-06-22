@@ -1008,7 +1008,7 @@ public abstract class AbstractTerminal
                     if (autoFieldWrap)
                     {
                         TermField firstField = fields.elementAt(0);
-                        lastField.setEndBA((firstField.getBeginBA() == 0) ? chars.length
+                        lastField.setEndBA((firstField.getBeginBA() == 0) ? chars.length - 1
                             : firstField.getBeginBA() - 1);
 
                         for (int cx = 0; cx < firstField.getBeginBA(); cx++)
