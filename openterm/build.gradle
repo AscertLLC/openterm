@@ -1,5 +1,5 @@
-description = 'open.term 3270'
-version = '1.5.3'
+description = "open.term 3270"
+version = '1.6-SNAPSHOT'
 archivesBaseName = 'openterm'
 
 dependencies {
@@ -22,43 +22,15 @@ task execute(type:JavaExec) {
     systemProperties System.getProperties();
 }
 
-uploadArchives {
-  repositories {
-    mavenDeployer {
-      pom.project {
-        name project.description
-        packaging 'jar'
-        // optionally artifactId can be defined here 
-        description 'An open source emulator supporting 3270 and potentially later 5250 terminal types.'
-        url 'https://github.com/AscertLLC/openterm'
 
-        scm {
-          connection 'https://github.com/AscertLLC/openterm.git'
-          developerConnection 'scm:git:ssh://git@github.com/AscertLLC/openterm.git'
-          url 'https://github.com/AscertLLC/openterm'
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            pom {
+                description = 'An open source emulator supporting 3270 and potentially later 5250 terminal types.'
+            }
         }
-
-        licenses {
-          license {
-            name "${gpl_name}"
-            url "${gpl_url}"
-          }
-        }
-
-        developers {
-          developer {
-            id = "${dev_id}"
-            name = "${dev_name}"
-            email = "${dev_email}"
-            organization = "${dev_organization}"
-            organizationUrl = "${dev_organizationUrl}"
-          }
-        }
-      }
     }
-  }
-}
-
-                
+}                
                 
                 
