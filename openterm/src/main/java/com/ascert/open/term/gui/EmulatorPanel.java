@@ -54,6 +54,7 @@ import com.ascert.open.term.i3270.Term3270;
 import com.ascert.open.term.core.Terminal;
 import com.ascert.open.term.core.TermField;
 import com.ascert.open.term.core.TerminalFactoryRegistrar;
+import com.ascert.open.term.core.InputCharHandler;
 import com.ascert.open.term.core.IsProtectedException;
 
 
@@ -85,6 +86,7 @@ public class EmulatorPanel extends JPanel
     private JMenuBar menubar;
     private JMenu connect;
     private JToolBar toolbar;
+    private TransferHandler th;
     private JTerminalScreen rhp;
     private Terminal term;
     private List<Host> available = new ArrayList<>();
@@ -240,6 +242,25 @@ public class EmulatorPanel extends JPanel
         super.processEvent(evt);
     }
 
+
+    private void createTerminalScreen() {
+        // Not perfect as initially it shows a blank screen, but at least it can be made of an expected type
+        // Could be nicer to show something more "neutral"
+        if (term == null && OpenTermConfig.getProp("startup.type") != null)
+        {
+            try
+            {
+                term = TerminalFactoryRegistrar.createTerminal(OpenTermConfig.getProp("startup.type").trim());
+            }
+            catch (Exception ex)
+            {
+                log.log(Level.WARNING, "Failed to create startup terminal type", ex);
+            }
+        }
+
+        rhp = new JTerminalScreen(term != null ? term : new Term3270(), toolbar);
+    }
+
     /**
      * Builds main menu. Constructs several menu items.
      */
@@ -288,42 +309,65 @@ public class EmulatorPanel extends JPanel
         });
         menubar.add(file);
 
-        JMenu edit = new JMenu("Edit");
-        edit.setMnemonic(KeyEvent.VK_E);
-
-        EmulatorTransferHandler th = new EmulatorTransferHandler();
-
-        JMenuItem cutItem = edit.add(TransferHandler.getCutAction());
-        cutItem.setText("Cut");
-        cutItem.setAccelerator(KeyStroke.getKeyStroke("alt X"));
-        cutItem.setMnemonic(KeyEvent.VK_T);
-        cutItem.setTransferHandler(th);
-
-        JMenuItem copyItem = edit.add(TransferHandler.getCopyAction());
-        copyItem.setText("Copy");
-        copyItem.setAccelerator(KeyStroke.getKeyStroke("alt C"));
-        copyItem.setMnemonic(KeyEvent.VK_C);
-        copyItem.setTransferHandler(th);
-
-        JMenuItem pasteItem = edit.add(TransferHandler.getPasteAction());
-        pasteItem.setText("Paste");
-        pasteItem.setAccelerator(KeyStroke.getKeyStroke("alt V"));
-        pasteItem.setMnemonic(KeyEvent.VK_P);
-        pasteItem.setTransferHandler(th);
-
-        edit.addSeparator();
-
-        AbstractAction selAllAct = new AbstractAction("Select All")
+        this.th = createTransferHandler();
+        if (th != null)
         {
-            public void actionPerformed(ActionEvent evt) {
-                rhp.selectAll();
-            }
-        };
-        JMenuItem selAllItem = edit.add(selAllAct);
-        selAllItem.setAccelerator(KeyStroke.getKeyStroke("alt A"));
-        selAllItem.setMnemonic(KeyEvent.VK_A);
+            JMenu edit = new JMenu("Edit");
+            edit.setMnemonic(KeyEvent.VK_E);
 
-        menubar.add(edit);
+            int items = 0;
+            int srcActs = th.getSourceActions(this);
+
+            if (srcActs == TransferHandler.COPY_OR_MOVE || srcActs == TransferHandler.MOVE)
+            {
+                JMenuItem cutItem = edit.add(TransferHandler.getCutAction());
+                cutItem.setText("Cut");
+                cutItem.setAccelerator(KeyStroke.getKeyStroke("alt X"));
+                cutItem.setMnemonic(KeyEvent.VK_T);
+                cutItem.setTransferHandler(th);
+                items++;
+            }
+
+            if (srcActs == TransferHandler.COPY_OR_MOVE || srcActs == TransferHandler.COPY)
+            {
+                JMenuItem copyItem = edit.add(TransferHandler.getCopyAction());
+                copyItem.setText("Copy");
+                copyItem.setAccelerator(KeyStroke.getKeyStroke("alt C"));
+                copyItem.setMnemonic(KeyEvent.VK_C);
+                copyItem.setTransferHandler(th);
+                items++;
+            }
+
+            // A bit of a bogus way to determine if the transfer handler
+            // supports paste at all (e.g. maybe it only supports non-string
+            // paste), but sufficient for the moment.
+            if (th.canImport(new TransferHandler.TransferSupport(this, new StringSelection("")))) {
+                JMenuItem pasteItem = edit.add(TransferHandler.getPasteAction());
+                pasteItem.setText("Paste");
+                pasteItem.setAccelerator(KeyStroke.getKeyStroke("alt V"));
+                pasteItem.setMnemonic(KeyEvent.VK_P);
+                pasteItem.setTransferHandler(th);
+                items++;
+            }
+
+            if (items > 0)
+            {
+                edit.addSeparator();
+            }
+
+            AbstractAction selAllAct = new AbstractAction("Select All")
+            {
+                public void actionPerformed(ActionEvent evt)
+                {
+                    rhp.selectAll();
+                }
+            };
+            JMenuItem selAllItem = edit.add(selAllAct);
+            selAllItem.setAccelerator(KeyStroke.getKeyStroke("alt A"));
+            selAllItem.setMnemonic(KeyEvent.VK_A);
+
+            menubar.add(edit);
+        }
 
         connect = new JMenu("Connect");
         connect.setMnemonic(KeyEvent.VK_N);
@@ -443,22 +487,6 @@ public class EmulatorPanel extends JPanel
             }
         });
 
-        // Not perfect as initially it shows a blank screen, but at least it can be made of an expected type
-        // Could be nicer to show something more "neutral"
-        if (term == null && OpenTermConfig.getProp("startup.type") != null)
-        {
-            try
-            {
-                term = TerminalFactoryRegistrar.createTerminal(OpenTermConfig.getProp("startup.type").trim());
-            }
-            catch (Exception ex)
-            {
-                log.log(Level.WARNING, "Failed to create startup terminal type", ex);
-            }
-        }
-        
-        rhp = new JTerminalScreen(term != null ? term : new Term3270(), toolbar);
-        
         if (!this.interactionAllowed)
         {
             // Just in case RHP was null when interactions originally disabled
@@ -543,6 +571,7 @@ public class EmulatorPanel extends JPanel
         setTitle(productName);
         setLayout(new BorderLayout());
 
+        createTerminalScreen();
         buildMainMenu();
         validate();
         repaint();
@@ -733,10 +762,26 @@ public class EmulatorPanel extends JPanel
         return rhp;
     }
 
-
-
-    private class EmulatorTransferHandler extends TransferHandler
+    public TransferHandler getTransferHandler()
     {
+        return th;
+    }
+
+    protected TransferHandler createTransferHandler()
+    {
+        return new EmulatorTransferHandler(this);
+    }
+
+
+    protected static class EmulatorTransferHandler extends TransferHandler
+    {
+        protected EmulatorPanel panel;
+
+        public EmulatorTransferHandler(EmulatorPanel panel)
+        {
+            this.panel = panel;
+        }
+
         public boolean canImport(TransferHandler.TransferSupport info)
         {
             return info.isDataFlavorSupported(DataFlavor.stringFlavor);
@@ -744,6 +789,7 @@ public class EmulatorPanel extends JPanel
 
         protected Transferable createTransferable(JComponent c)
         {
+            JTerminalScreen rhp = panel.getTerminalScreen();
             String data = new String(rhp.getTerm().getDisplay());
             String sel;
             if (rhp.getSelectionMode() == JTerminalScreen.SelectionMode.RECTANGLE)
@@ -780,73 +826,62 @@ public class EmulatorPanel extends JPanel
 
         public boolean importData(TransferHandler.TransferSupport info)
         {
+            boolean imported = false;
             try
             {
+                JTerminalScreen rhp = panel.getTerminalScreen();
                 String data = (String)info.getTransferable().getTransferData(DataFlavor.stringFlavor);
+                imported = (data.length() == 0);
                 Terminal term = rhp.getTerm();
-                boolean hasFields = (term.getFields().size() > 0);
-                int maxpos = term.getDisplayPage().displaySize();
-                int pos = term.getCursorPosition();
-                for (int c=0; c<data.length() && pos<maxpos; c++)
+                InputCharHandler charHandler = term.getCharHandler();
+                int rowStart = term.getCursorPosition();
+                if (rhp.getSelectionMode() != JTerminalScreen.SelectionMode.RECTANGLE)
+                {
+                    rowStart = rowStart / term.getCols() * term.getCols();
+                }
+                for (int c=0; c<data.length(); c++)
                 {
                     char ch = data.charAt(c);
-                    if (!hasFields)
-                    {
-                        term.getChar(pos).setChar(ch);
-                        pos++;
-                    }
-                    else
-                    {
-                        TermField fld = term.getChar(pos).getField();
-                        if (fld == null || fld.isProtected())
+                    if (!Character.isISOControl(ch)) {
+                        try
                         {
-                            break;
-                        }
-                        if (!fld.isValidInput(ch))
-                        {
-                            term.getClient().beep();
-                            break;
-                        }
-                        term.getChar(pos).setChar(ch);
-                        try { fld.setModified(true); }
-                        catch (IsProtectedException shouldNotHappen) {}
-
-                        pos++;
-                        if (fld.getEndBA() < fld.getBeginBA() && pos >= maxpos)
-                        {
-                            pos -= maxpos;
-                        }
-                        if (pos > fld.getEndBA())
-                        {
-                            if (fld.isAutoTab())
+                            int beforePos = term.getCursorPosition();
+                            if (!charHandler.type(ch, false))
                             {
-                                pos = term.getNextUnprotectedField(pos);
+                                break;
                             }
-                            else
+                            imported = true;
+                            int afterPos = term.getCursorPosition();
+                            if (beforePos == afterPos)
                             {
-                                if (c < data.length()-1)
-                                {
-                                    term.getClient().beep();
-                                }
                                 break;
                             }
                         }
+                        catch (IsProtectedException pe)
+                        {
+                            break;
+                        }
+                    }
+                    else if (ch == '\n' && term.allowDirectScreenEditing()) {
+                        rowStart += term.getCols();
+                        term.setCursorPosition(rowStart);
                     }
                 }
-                term.setCursorPosition(pos);
                 term.getClient().refresh();
             }
             catch (Exception e)
             {
                 return false;
             }
-            return true;
+            return imported;
         }
 
         protected void exportDone(JComponent c, Transferable data, int action)
         {
+            JTerminalScreen rhp = panel.getTerminalScreen();
             if (action == TransferHandler.MOVE)
             {
+                Terminal term = rhp.getTerm();
                 // Cut characters from terminal
                 if (rhp.getSelectionMode() == JTerminalScreen.SelectionMode.RECTANGLE)
                 {
@@ -862,7 +897,7 @@ public class EmulatorPanel extends JPanel
                                 TermField fld = term.getChar(pos+col).getField();
                                 if (fld != null && !fld.isProtected())
                                 {
-                                    term.getChar(pos+col).setChar((char)0);
+                                    term.getChar(pos+col).setChar(term.getEmptyChar());
                                     try { fld.setModified(true); }
                                     catch (IsProtectedException shouldNotHappen) {}
                                 }
@@ -881,7 +916,7 @@ public class EmulatorPanel extends JPanel
                             TermField fld = term.getChar(ix).getField();
                             if (fld != null && !fld.isProtected())
                             {
-                                term.getChar(ix).setChar((char)0);
+                                term.getChar(ix).setChar(term.getEmptyChar());
                                 try { fld.setModified(true); }
                                 catch (IsProtectedException shouldNotHappen) {}
                             }
