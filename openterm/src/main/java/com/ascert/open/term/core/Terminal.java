@@ -353,7 +353,17 @@ public interface Terminal
     {
         return null;
     }
-    
+
+    default boolean allowDirectScreenEditing()
+    {
+        return false;
+    }
+
+    default char getEmptyChar()
+    {
+        return ' ';
+    }
+
     /**
      * @return the host
      */

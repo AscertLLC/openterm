@@ -197,6 +197,18 @@ public class Term3270
     }
 
     @Override
+    public boolean allowDirectScreenEditing()
+    {
+        return getFields().size() == 0;
+    }
+
+    @Override
+    public char getEmptyChar()
+    {
+        return 0;
+    }
+
+    @Override
     public void Fkey(OHIO_AID key)
     {
         super.Fkey(key);
