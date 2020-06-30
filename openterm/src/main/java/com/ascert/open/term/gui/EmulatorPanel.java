@@ -85,7 +85,7 @@ public class EmulatorPanel extends JPanel
     protected JFrame parentFrame;
     private JMenuBar menubar;
     private JMenu connect;
-    private JToolBar toolbar;
+    private JToolBar toolbar = new JToolBar();
     private TransferHandler th;
     private JTerminalScreen rhp;
     private Terminal term;
@@ -274,7 +274,6 @@ public class EmulatorPanel extends JPanel
         //setJMenuBar(menubar);
         pnlTools.add("North", menubar);
         
-        toolbar = new JToolBar();
         toolbar.setFloatable(false);
         toolbar.setVisible("true".equals(OpenTermConfig.getProp("toolbar.fkey.enabled")));
         pnlTools.add("Center", toolbar);
