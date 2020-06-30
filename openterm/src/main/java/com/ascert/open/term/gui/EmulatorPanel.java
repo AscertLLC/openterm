@@ -850,10 +850,15 @@ public class EmulatorPanel extends JPanel
                                 break;
                             }
                             imported = true;
-                            int afterPos = term.getCursorPosition();
-                            if (beforePos == afterPos)
+                            
+                            // See if paste has gone as far as it can (e.g. end of field)
+                            if (!term.getDisplayPage().isLocalEditMode())
                             {
-                                break;
+                                int afterPos = term.getCursorPosition();
+                                if (beforePos == afterPos)
+                                {
+                                    break;
+                                }
                             }
                         }
                         catch (IsProtectedException pe)
