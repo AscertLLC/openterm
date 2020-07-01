@@ -418,7 +418,8 @@ public class Term3270Char extends AbstractTermChar
                 return Color.WHITE;
         }
 
-        return Color.BLACK;
+        // Use the terminal default if the specified color isn't known
+        return null;
     }
 
 }
