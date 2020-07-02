@@ -298,9 +298,9 @@ public class Tn3270StreamParser implements TnStreamParser
     private boolean lastWasCommand;
     private boolean newSACommand;
     private int bufferAddr;
-    private short foreground;
-    private short background;
-    private short highlight;
+    private short foreground = Term3270Char.FGCOLOR_DEFAULT;
+    private short background = Term3270Char.BGCOLOR_DEFAULT;
+    private short highlight = Term3270Char.HL_NORMAL;
 
     public Tn3270StreamParser(Term3270 rw)
     {
@@ -1122,41 +1122,41 @@ public class Tn3270StreamParser implements TnStreamParser
         for (int i = 0; i < pairs; i++)
         {
             //System.out.println("SFE: " + Integer.toHexString(dataIn[++counter]));
-            switch (dataIn[++counter])
+            int att = dataIn[++counter];
+            counter++;
+            switch (att)
             {
                 // get the next value from dataIn which will tell us what kind of attribute it is
                 case XA_SF: // same as SF command above
-                    chars[bufferAddr].setFieldAttribute(dataIn[++counter]);
+                    chars[bufferAddr].setFieldAttribute(dataIn[counter]);
                     break;
 
                 case XA_VALIDATION:
-                    chars[bufferAddr].setValidation(dataIn[++counter]);
+                    chars[bufferAddr].setValidation(dataIn[counter]);
                     break;
 
                 case XA_OUTLINING:
-                    chars[bufferAddr].setOutlining(dataIn[++counter]);
+                    chars[bufferAddr].setOutlining(dataIn[counter]);
                     break;
 
                 case XA_HIGHLIGHTING:
-                    chars[bufferAddr].setHighlighting(dataIn[++counter]);
+                    chars[bufferAddr].setHighlighting(dataIn[counter]);
                     break;
 
                 case XA_FGCOLOR:
-                    chars[bufferAddr].setForeground(dataIn[++counter]);
+                    chars[bufferAddr].setForeground(dataIn[counter]);
                     break;
 
                 case XA_CHARSET:
                     //not supported - nightmare
-                    counter++;
                     break;
 
                 case XA_BGCOLOR:
-                    chars[bufferAddr].setBackground(dataIn[++counter]);
+                    chars[bufferAddr].setBackground(dataIn[counter]);
                     break;
 
                 case XA_TRANSPARENCY:
                     //not supported - What does it do?
-                    counter++;
                     break;
             }
         }
@@ -1204,29 +1204,27 @@ public class Tn3270StreamParser implements TnStreamParser
         int att = dataIn[++counter];
         rw.setFieldsChanged(true);
 
+        counter++;
         //System.out.println("IBM SA: " + att);
         switch (att)
         {
             case 0:
-                foreground = 247;
-                background = 240;
-                highlight = 240;
-                return;
+                foreground = Term3270Char.FGCOLOR_DEFAULT;
+                background = Term3270Char.BGCOLOR_DEFAULT;
+                highlight = Term3270Char.HL_NORMAL;
+                break;
 
             case XA_HIGHLIGHTING:
-                highlight = dataIn[++counter];
-                return;
+                highlight = dataIn[counter];
+                break;
 
             case XA_FGCOLOR:
-                foreground = dataIn[++counter];
-                return;
+                foreground = dataIn[counter];
+                break;
 
             case XA_BGCOLOR:
-                background = dataIn[++counter];
-                return;
-
-            default:
-                return;
+                background = dataIn[counter];
+                break;
         }
     }
 
@@ -1266,36 +1264,35 @@ public class Tn3270StreamParser implements TnStreamParser
         for (int i = 0; i < pairs; i++)
         {
             //System.out.println("Attribute to modify: " + Integer.toHexString(dataIn[++counter]));
-            switch (dataIn[++counter])
+            int att = dataIn[++counter];
+            counter++;
+            switch (att)
             {
                 case ORDER_SFE:
                 case ORDER_SF:
                 case XA_SF:
-                    currChar.setFieldAttribute(dataIn[++counter]);
+                    currChar.setFieldAttribute(dataIn[counter]);
                     break;
 
                 case XA_VALIDATION:
-                    currChar.setValidation(dataIn[++counter]);
+                    currChar.setValidation(dataIn[counter]);
                     break;
 
                 case XA_HIGHLIGHTING:
-                    currChar.setHighlighting(dataIn[++counter]);
+                    currChar.setHighlighting(dataIn[counter]);
                     break;
 
                 case XA_FGCOLOR:
-                    currChar.setForeground(dataIn[++counter]);
+                    currChar.setForeground(dataIn[counter]);
                     break;
 
                 case XA_BGCOLOR:
-                    currChar.setBackground(dataIn[++counter]);
+                    currChar.setBackground(dataIn[counter]);
                     break;
 
                 case XA_OUTLINING:
-                    currChar.setOutlining(dataIn[++counter]);
+                    currChar.setOutlining(dataIn[counter]);
                     break;
-
-                default:
-                    counter++;
             }
         }
 
