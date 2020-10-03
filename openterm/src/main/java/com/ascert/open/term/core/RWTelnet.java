@@ -288,6 +288,8 @@ public class RWTelnet implements Runnable
     {
         this.is = is;
         this.os = os;
+        negTnCmds.clear();
+        tnState = TN_DEFAULT;
         sessionThread = new Thread(this);
         sessionThread.start();
     }
