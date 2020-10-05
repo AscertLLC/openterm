@@ -590,6 +590,7 @@ public class Tn3270StreamParser implements TnStreamParser
 
                 default:
                     Term3270Char currChar = chars[bufferAddr++];
+                    currChar.clear();
                     currChar.setChar((char) ebc2asc[dataIn[counter]]);
 
                     //System.out.print(currChar.getChar());
@@ -1393,7 +1394,7 @@ public class Tn3270StreamParser implements TnStreamParser
         while (bufferAddr != address)
         {
             Term3270Char currChar = chars[bufferAddr];
-            //currChar.clear();
+            currChar.clear();
             //currChar.setHighlighting(highlight);
             //currChar.setForeground(foreground);
             //currChar.setBackground(background);
