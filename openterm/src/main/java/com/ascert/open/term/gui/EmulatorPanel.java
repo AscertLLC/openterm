@@ -549,10 +549,10 @@ public class EmulatorPanel extends JPanel
         pack();
     }
 
-    public void init(String host, int port, String type, boolean encryption)
+    public void init(String host, int port, String type, boolean encryption, int keepAliveTimeout)
     {
         log.fine("** host " + host);
-        available.add(new Host(host, port, type, encryption));
+        available.add(new Host(host, port, type, encryption, keepAliveTimeout));
         init();
     }
 

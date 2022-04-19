@@ -162,6 +162,9 @@ public class RWTelnet implements Runnable
     protected byte[] lineModeOpts = null;
 
     protected TraceHandler traceHandler = null;
+    // For keep Alive handling
+    private long lastSendTS;
+    private int keepAliveMillis;
 
     /**
      * DOCUMENT ME!
@@ -218,6 +221,7 @@ public class RWTelnet implements Runnable
         try
         {
             sendInitialCommands();
+            startKeepAlive();
 
             while (true)
             {
@@ -431,8 +435,11 @@ public class RWTelnet implements Runnable
         //System.out.print(Integer.toHexString(tmpByteBuf[i]) + " ");
     }
 
-    public void send(byte[] out, int off, int outLen) throws IOException
+    // Precautionary sync so we can't get overlapping calls to put data into the
+    // output buffer. 
+    public synchronized void send(byte[] out, int off, int outLen) throws IOException
     {
+        lastSendTS = System.currentTimeMillis();
         //write the data out to the EncryptedOutputStream
         os.write(out, off, outLen);
         os.flush();
@@ -449,6 +456,14 @@ public class RWTelnet implements Runnable
         sendData(new byte[]
         {
             (byte) IAC, (byte) BREAK
+        });
+    }
+    
+    public void sendNOP() throws IOException
+    {
+        sendData(new byte[]
+        {
+            (byte) IAC, (byte) NOP
         });
     }
 
@@ -991,4 +1006,51 @@ public class RWTelnet implements Runnable
         this.lineModeOpts = lineModeOpts;
     }
 
+    void setKeepAliveTimeout(int keepAliveTimeout)
+    {
+        this.keepAliveMillis = keepAliveTimeout * 1000;
+        log.fine("Keep alive timeout: " + this.keepAliveMillis);
+    }
+
+    void startKeepAlive()
+    {
+        if (keepAliveMillis > 0)
+        {
+            log.fine("Starting keep alive thread");
+            Thread kaThread = new Thread(new KeepAliveRunner());
+            kaThread.start();
+        }
+    }
+    
+    
+    private class KeepAliveRunner implements Runnable
+    {
+
+        @Override
+        public void run()
+        {
+            while (true)
+            {
+                try                        
+                {
+                    Thread.sleep(keepAliveMillis);
+                    if (lastSendTS < (System.currentTimeMillis() - keepAliveMillis))
+                    {
+                        log.fine("Sending keep alive ...");
+                        sendNOP();
+                    }
+                } 
+                catch (IOException ex)
+                {
+                    // Will probably get caught and handled elsewhere anyway - warn for now, disconnect on multiple maybe
+                    log.warning("IO Exception on KeepAlive: " + ex);
+                }
+                catch (InterruptedException ex)
+                {
+                    // Nothing we need to do here really
+                }
+            }
+        }
+        
+    }
 }

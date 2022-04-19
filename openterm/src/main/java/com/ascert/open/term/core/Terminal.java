@@ -229,9 +229,9 @@ public interface Terminal
      * @throws IOException          DOCUMENT ME!
      * @throws UnknownHostException DOCUMENT ME!
      */
-    default void connect(String host, int port, boolean encryption) throws IOException, UnknownHostException
+    default void connect(String host, int port, boolean encryption, int keepAliveTimeout) throws IOException, UnknownHostException
     {
-        setHost(new Host(host, port, getTermType(), encryption));
+        setHost(new Host(host, port, getTermType(), encryption, keepAliveTimeout));
         connect();
     }
 

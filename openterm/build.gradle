@@ -1,5 +1,5 @@
 description = "open.term 3270"
-version = '1.6-SNAPSHOT'
+version = '1.7-SNAPSHOT'
 archivesBaseName = 'openterm'
 
 dependencies {
