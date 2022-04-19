@@ -60,7 +60,8 @@ public class Host implements Serializable, SimpleConfig
                 int hostPort = opts.length > 1 ? Integer.parseInt(opts[1]) : 23;
                 String useSSL = opts.length > 2 ? opts[2] : "false";
                 String termType = opts.length > 3 ? opts[3] : "IBM-3278-2";
-                hostLst.add(new Host(hostName, hostPort, termType, "true".equalsIgnoreCase(useSSL), favourites));
+                int keepAliveTimeout = opts.length > 4 ? Integer.parseInt(opts[4]) : 0;
+                hostLst.add(new Host(hostName, hostPort, termType, "true".equalsIgnoreCase(useSSL), keepAliveTimeout, favourites));
             }
         }
         
@@ -130,20 +131,21 @@ public class Host implements Serializable, SimpleConfig
     
     public Host(String hostName, int port, String termType)
     {
-        this(hostName, port, termType, false);
+        this(hostName, port, termType, false, 0);
     }
 
-    public Host(String hostName, int port, String termType, boolean encryption)
+    public Host(String hostName, int port, String termType, boolean encryption, int keepAliveTimeout)
     {
-        this(hostName, port, termType, encryption, false);
+        this(hostName, port, termType, encryption, keepAliveTimeout, false);
     }
     
-    public Host(String hostName, int port, String termType, boolean encryption, boolean favourite)
+    public Host(String hostName, int port, String termType, boolean encryption, int keepAliveTimeout, boolean favourite)
     {
         setHostName(hostName);
         setPort(port);
         setTermType(termType);
         setEncryption(encryption);
+        setKeepAliveTimeout(keepAliveTimeout);
         setFavourite(favourite);
     }
 
@@ -224,6 +226,22 @@ public class Host implements Serializable, SimpleConfig
         setProperty("host.encryption", Boolean.toString(encryption));
     }
 
+    /**
+     * @return the port
+     */
+    public int getKeepAliveTimeout()
+    {
+        return Integer.parseInt(getProperty("host.keepalive", "0"));
+    }
+
+    /**
+     * @param port the port to set
+     */
+    public void setKeepAliveTimeout(int keepAliveTimeout)
+    {
+        setProperty("host.keepalive", Integer.toString(keepAliveTimeout));
+    }
+    
     /**
      * @return the favourite
      */

@@ -69,6 +69,7 @@ public class NewHostDialog extends JDialog implements ActionListener,
     private JCheckBox useEncryptionField;
     private JCheckBox addToFavourites;
     private JFormattedTextField portField;
+    private JFormattedTextField keepAliveField;
     private JOptionPane optionPane;
     private JTextField hostField;
 
@@ -84,7 +85,7 @@ public class NewHostDialog extends JDialog implements ActionListener,
 
     public NewHostDialog(Frame owner, String hostName, Integer portNumber)
     {
-        this(null, null, null, false);
+        this(null, null, null, false, null);
     }
 
     /**
@@ -95,7 +96,7 @@ public class NewHostDialog extends JDialog implements ActionListener,
      * @param portNumber    default value for port number. If <code>null</code> none is used.
      * @param useEncryption default state for 'use encryption' check box.
      */
-    public NewHostDialog(Frame owner, String hostName, Integer portNumber, boolean useEncryption)
+    public NewHostDialog(Frame owner, String hostName, Integer portNumber, boolean useEncryption, Integer kaTimeout)
     {
         super(owner, "Connection settings", true);
 
@@ -111,6 +112,9 @@ public class NewHostDialog extends JDialog implements ActionListener,
         portField.setValue(portNumber != null ? portNumber : 23);
         useEncryptionField = new JCheckBox();
         useEncryptionField.setSelected(useEncryption);
+        keepAliveField = new JFormattedTextField(NumberFormat.getIntegerInstance());
+        keepAliveField.setColumns(4);
+        keepAliveField.setValue(kaTimeout != null ? kaTimeout : 0);
         addToFavourites = new JCheckBox();
 
         termOptsPanel = new JPanel();
@@ -141,6 +145,7 @@ public class NewHostDialog extends JDialog implements ActionListener,
                 { "Host:", hostField },
                 { "Port:", portField },
                 { "Use SSL:", useEncryptionField },
+                { "Keep Alive timeout:", keepAliveField },
                 { "Favourite:", addToFavourites },
                 { "Type:", typeCombo },
             };
@@ -266,6 +271,8 @@ public class NewHostDialog extends JDialog implements ActionListener,
                 Number port = (Number) portField.getValue();
                 host.setPort(port.intValue());
                 host.setEncryption(useEncryptionField.isSelected());
+                Number ka = (Number) keepAliveField.getValue();
+                host.setKeepAliveTimeout(ka.intValue());
                 host.setFavourite(addToFavourites.isSelected());
                 
                 log.fine(String.format("New host %s", host.toString()));

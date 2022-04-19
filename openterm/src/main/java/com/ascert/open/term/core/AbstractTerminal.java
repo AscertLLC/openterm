@@ -630,6 +630,7 @@ public abstract class AbstractTerminal
         log.fine("connecting " + host + ":" + host.getPort()+"; "+host.isEncryption());
         //Wipe down any possible old remnants from previous session
         initTerm();
+        tn.setKeepAliveTimeout(host.getKeepAliveTimeout());
         client.status(TnAction.CONNECTING);
         tn.connect(host.getHostName(), host.getPort());
         log.fine("connecting complete");
@@ -641,6 +642,7 @@ public abstract class AbstractTerminal
         log.fine("connecting (direct)");
         //Wipe down any possible old remnants from previous session
         initTerm();
+        tn.setKeepAliveTimeout(host.getKeepAliveTimeout());
         client.status(TnAction.CONNECTING);
         tn.connect(is, os);
         log.fine("connecting complete");
