@@ -32,7 +32,7 @@ An original org.ohio package was used as a starting point, but modified and tidi
 
 I'm glad you asked about that. 
 
-Ascert LLC offers a 6530 datastream handling library and commercial terminal called **term.6530**. It is of course based around the open.term core which we maintain here, but with additions and extensions for handling NonStop 6530 devices. Feel free to email Ascert for more details: info@ascert.com
+Ascert LLC offers a commercial NonStop 6530 datastream handling library and terminal emulator called **term.6530**. It is of course based around the open.term core which we maintain here, but with additions and extensions for handling NonStop 6530 terminals. Feel free to email Ascert for more details: info@ascert.com
 
 ### Why wasn't the first release 1.0.0? ###
 
