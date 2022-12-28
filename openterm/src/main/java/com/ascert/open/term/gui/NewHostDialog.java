@@ -145,7 +145,7 @@ public class NewHostDialog extends JDialog implements ActionListener,
                 { "Host:", hostField },
                 { "Port:", portField },
                 { "Use SSL:", useEncryptionField },
-                { "Keep Alive timeout:", keepAliveField },
+                { "KeepAlive timeout (secs):", keepAliveField },
                 { "Favourite:", addToFavourites },
                 { "Type:", typeCombo },
             };
