@@ -642,7 +642,8 @@ public abstract class AbstractTerminal
         log.fine("connecting (direct)");
         //Wipe down any possible old remnants from previous session
         initTerm();
-        tn.setKeepAliveTimeout(host.getKeepAliveTimeout());
+        // Stream based connections may not have a host
+        tn.setKeepAliveTimeout(host != null ? host.getKeepAliveTimeout() : 0);
         client.status(TnAction.CONNECTING);
         tn.connect(is, os);
         log.fine("connecting complete");
