@@ -1,5 +1,5 @@
 description = "open.term 3270"
-version = '1.7.0'
+version = '1.7.1'
 archivesBaseName = 'openterm'
 
 dependencies {
@@ -27,6 +27,7 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             pom {
+                name = project.name + ":" + project.version
                 description = 'An open source emulator supporting 3270 and potentially later 5250 terminal types.'
             }
         }
