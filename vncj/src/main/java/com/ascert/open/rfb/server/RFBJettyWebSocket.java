@@ -195,7 +195,11 @@ public class RFBJettyWebSocket extends WebSocketAdapter
         @Override
         public void close()
         {
-            getSession().close();
+            // may not still be in session
+            if (getSession() != null)
+            {
+                getSession().close();
+            }
         }        
     }
 }
