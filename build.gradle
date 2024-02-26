@@ -15,6 +15,8 @@ ext {
     
     // Make sure we have a default for initial configuration evaluation
     isReleaseVersion = false    
+    
+    java_release = project.findProperty('java_release') ?: 1.8        
 }
 
 
@@ -40,6 +42,11 @@ subprojects {
     apply plugin: 'java-library'
     apply plugin: 'maven-publish'
     apply plugin: 'signing'
+    
+    // In theory these are deprecated, but the options.release form does not allow --add-exports
+    // (see https://bugs.openjdk.org/browse/JDK-8178152)    
+    sourceCompatibility = "${java_release}"
+    targetCompatibility = "${java_release}"
     
     dependencies {
         testCompile group: 'junit', name: 'junit', version: '[4,)'
