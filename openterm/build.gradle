@@ -3,7 +3,8 @@ version = '1.7.2'
 archivesBaseName = 'openterm'
 
 dependencies {
-    compile project(":vncj")
+    implementation 'org.java-websocket:Java-WebSocket:1.5.6'
+    implementation project(":vncj")
 }
 
 jar {
