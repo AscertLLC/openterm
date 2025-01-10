@@ -4,7 +4,7 @@
 
 ### What is this repository for? ###
 
-Am open source emulator supporting 3270 and potentially later 5250 terminal types. The name, is derived from  Ascert's package root for open source contributions. This being a terminal emulator, it's packages naturally have a .term suffix - hence the full name of "open.term"
+An open source emulator supporting 3270 and potentially later 5250 terminal types. The name, is derived from  Ascert's package root for open source contributions. This being a terminal emulator, it's packages naturally have a .term suffix - hence the full name of "open.term"
 
 The original purpose of this package was for code control of a host terminal. Over time if has become a useful, if basic, terminal emulator in it's own right.
 
@@ -36,7 +36,7 @@ Ascert LLC offers a commercial NonStop 6530 datastream handling library and term
 
 ### Why wasn't the first release 1.0.0? ###
 
-Basically, the original Freehost3270 code seemed to have a 0.2.0 version marker. Ascert moved to a 1.0 version to reflect the significant amount of refactoring. It took a couple of internal releases to get this all done to a reasonably decent level and also working on GitHub and JitPack. 
+Basically, the original Freehost3270 code seemed to have a 0.2.0 version marker. Ascert moved to a 1.x version to reflect the significant amount of refactoring, but with the first release being 1.3.0 as a nod to following the 0.2.0 original code. It took a couple of internal releases to get this all done to a reasonably decent level and also working on GitHub and JitPack. 
 
 ### Code Style ###
 
